@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORBIT - Terminal Trading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" type="application/javascript"></script>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        body { background-color: #0b0e11; color: #d1d4dc; font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0e11; }
+        ::-webkit-scrollbar-thumb { background: #2b3139; border-radius: 4px; }
+        .depth-bar-red { background: linear-gradient(to left, rgba(246, 70, 93, 0.15) 0%, transparent 100%); }
+        .depth-bar-green { background: linear-gradient(to left, rgba(14, 203, 129, 0.15) 0%, transparent 100%); }
+        .panel { background-color: #181a20; border: 1px solid #2b3139; border-radius: 8px; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="h-16 shrink-0 flex items-center justify-between px-6 border-b border-[#2b3139] bg-[#181a20]">
+        <div class="flex items-center gap-8">
+            <a href="/market.html" class="text-2xl font-bold text-white tracking-widest hover:text-gray-300 transition">ORBIT <span class="text-xs text-blue-500 font-mono tracking-normal ml-2 border border-blue-500 rounded px-1">Web3</span></a>
+            <span id="header-symbol" class="bg-[#2b3139] px-3 py-1 rounded text-white font-mono text-sm font-bold">...</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="network-badge" class="hidden px-2 py-1 rounded bg-yellow-900/30 border border-yellow-700 text-[10px] text-yellow-500 font-bold uppercase tracking-wider">
+                Sepolia Testnet
+            </div>
+            <button id="btn-connect" onclick="connectWallet()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded transition flex items-center gap-2 shadow-lg shadow-blue-900/20">
+                <span id="wallet-icon">🦊</span>
+                <span id="btn-text">Connect Wallet</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        
+        <div class="lg:col-span-9 flex flex-col gap-4 overflow-hidden h-full">
+            <div class="panel flex-1 relative w-full h-full overflow-hidden">
+                <div class="tradingview-widget-container h-full w-full">
+                    <div id="tradingview_orbit" class="h-full w-full"></div>
+                </div>
+            </div>
+
+            <div class="panel shrink-0 min-h-[220px] h-[30%] flex flex-col">
+                <div class="flex gap-6 px-4 pt-3 border-b border-[#2b3139] text-sm font-medium shrink-0">
+                    <button onclick="switchTab('history')" id="tab-history" class="text-white border-b-2 border-blue-500 pb-2 transition">Riwayat Transaksi Blockchain</button>
+                    <button onclick="switchTab('posisi')" id="tab-posisi" class="text-gray-500 hover:text-white pb-2 transition">Info Koneksi</button>
+                </div>
+                <div id="content-history" class="overflow-y-auto flex-1">
+                    <table class="w-full text-xs text-left">
+                        <thead class="text-gray-500 sticky top-0 bg-[#181a20] shadow-sm">
+                            <tr><th class="p-3">Waktu (WIB)</th><th class="p-3">Simbol</th><th class="p-3">Arah</th><th class="p-3">Harga Eksekusi</th><th class="p-3">Kuantitas</th></tr>
+                        </thead>
+                        <tbody id="history-list" class="font-mono">
+                            <tr><td colspan="5" class="p-4 text-center text-gray-600">Hubungkan dompet untuk melihat riwayat dari blockchain</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="content-posisi" class="overflow-y-auto flex-1 hidden p-4 font-mono text-sm text-gray-400">
+                    <p class="mb-2">Status Node: <span class="text-green-500">Decentralized</span></p>
+                    <p class="mb-2">Contract Address: <span class="text-white">0x7159d337f827e4d8d06d51bdd2d5a219d19d4f68</span></p>
+                    <p class="mb-2">Jaringan: <span class="text-yellow-500">Ethereum Sepolia</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3 flex flex-col gap-4 overflow-hidden h-full">
+            <div class="panel flex-1 flex flex-col overflow-hidden">
+                <div class="p-3 border-b border-[#2b3139] shrink-0 text-[11px] text-gray-500 uppercase flex justify-between">
+                    <span>Price (USDT)</span><span id="orderbook-amount-label">Amount (Koin)</span>
+                </div>
+                <div id="orderbook-asks" class="flex-1 flex flex-col-reverse overflow-hidden text-xs font-mono"></div>
+                <div class="py-2 border-y border-[#2b3139] flex justify-center gap-2 shrink-0">
+                    <span id="mid-price" class="text-xl font-bold font-mono">0.00</span><span class="text-xs text-gray-500 mt-1">USDT</span>
+                </div>
+                <div id="orderbook-bids" class="flex-1 overflow-hidden text-xs font-mono"></div>
+            </div>
+
+            <div class="panel shrink-0 p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-400">Tipe Order</span>
+                    <div class="text-right">
+                        <span class="text-xs font-bold bg-[#2b3139] px-2 py-1 rounded text-white">ON-CHAIN MARKET</span>
+                        <div class="text-[10px] text-gray-400 mt-2">Aset: <span id="my-btc-balance" class="text-green-500 font-bold font-mono">0.0000</span></div>
+                    </div>
+                </div>
+                <div class="space-y-3 mb-4">
+                    <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between">
+                        <span class="text-xs text-gray-500 mt-1">Price</span>
+                        <input type="text" value="Market" disabled class="bg-transparent text-right text-sm font-mono text-white w-1/2">
+                    </div>
+                    <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between">
+                        <span class="text-xs text-gray-500 mt-1">Amount</span>
+                        <input type="number" id="order-amount" value="0.1" step="0.01" class="bg-transparent text-right text-sm font-mono text-white focus:outline-none w-1/2">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="executeOrder('SELL')" class="bg-[#f6465d] hover:bg-[#ff5a71] text-white font-bold py-3 rounded transition-all active:scale-95">SELL</button>
+                    <button onclick="executeOrder('BUY')" class="bg-[#0ecb81] hover:bg-[#14d98d] text-white font-bold py-3 rounded transition-all active:scale-95">BUY</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // 0. DINAMIS: BACA PARAMETER DARI URL
+        // ==========================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentSymbol = urlParams.get('symbol') || 'BTCUSDT'; 
+        const baseCoin = currentSymbol.replace('USDT', '');
+
+        // Update teks antarmuka sesuai koin yang dipilih
+        document.getElementById('header-symbol').innerText = `${baseCoin} / USDT`;
+        document.getElementById('orderbook-amount-label').innerText = `Amount (${baseCoin})`;
+        
+        // Render Chart TradingView sesuai Koin
+        new TradingView.widget({
+            "autosize": true, 
+            "symbol": "BINANCE:" + currentSymbol, 
+            "interval": "15",
+            "timezone": "Asia/Jakarta", 
+            "theme": "dark", 
+            "style": "1", 
+            "locale": "id",
+            "backgroundColor": "#181a20", 
+            "gridColor": "#2b3139", 
+            "hide_top_toolbar": false,
+            "container_id": "tradingview_orbit", 
+            "studies": ["IchimokuCloud@tv-basicstudies"]
+        });
+
+        // ==========================================
+        // 1. WEBSOCKET BINANCE (Real-time Market Dinamis)
+        // ==========================================
+        const streamName = currentSymbol.toLowerCase(); 
+        const wsUrl = `wss://stream.binance.com:9443/ws/${streamName}@depth10@100ms/${streamName}@trade`;
+        
+        const ws = new WebSocket(wsUrl);
+        let livePrice = 0;
+
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            if (data.e === 'trade') {
+                livePrice = parseFloat(data.p);
+                const mid = document.getElementById('mid-price');
+                
+                const decimals = livePrice < 1 ? 4 : 2;
+                mid.innerText = livePrice.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+                mid.className = data.m ? 'text-xl font-bold text-red-500 font-mono' : 'text-xl font-bold text-green-500 font-mono';
+            }
+            if (data.bids && data.asks) {
+                renderOB('orderbook-asks', data.asks.reverse(), 'text-[#f6465d]', 'depth-bar-red');
+                renderOB('orderbook-bids', data.bids, 'text-[#0ecb81]', 'depth-bar-green');
+            }
+        };
+
+        function renderOB(id, data, tColor, bColor) {
+            let h = '';
+            const max = Math.max(...data.map(i => parseFloat(i)));
+            data.forEach(i => {
+                const decimals = parseFloat(i) < 1 ? 4 : 2;
+                const price = parseFloat(i).toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+                const amount = parseFloat(i).toFixed(4);
+                const width = (parseFloat(i) / max) * 100;
+                h += `<div class="relative flex justify-between px-3 py-1"><div class="absolute right-0 top-0 bottom-0 ${bColor} opacity-50" style="width: ${width}%"></div><span class="${tColor} z-10">${price}</span><span class="text-white z-10">${amount}</span></div>`;
+            });
+            document.getElementById(id).innerHTML = h;
+        }
+
+        // ==========================================
+        // 2. KONFIGURASI SMART CONTRACT & WEB3
+        // ==========================================
+        const CONTRACT_ADDRESS = "0x7159d337f827e4d8d06d51bdd2d5a219d19d4f68"; 
+        const ABI = [
+            "function executeTrade(string _symbol, string _side, uint256 _price, uint256 _qty) public",
+            "function getTrades(address _user) public view returns (tuple(string symbol, string side, uint256 price, uint256 qty, uint256 timestamp)[])"
+        ];
+
+        let userAddress = null;
+        let provider = null;
+        let signer = null;
+        let orbitContract = null;
+
+        async function connectWallet() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    userAddress = accounts;
+                    
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                    orbitContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+                    updateWalletUI();
+                    checkNetwork();
+                    loadBlockchainHistory();
+                    
+                } catch (error) {
+                    console.error("User menolak koneksi", error);
+                }
+            } else {
+                alert("MetaMask belum terinstall! Silakan pasang di browser kamu.");
+            }
+        }
+
+        function updateWalletUI() {
+            if (userAddress) {
+                const displayAddr = userAddress.substring(0, 6) + "..." + userAddress.substring(userAddress.length - 4);
+                document.getElementById('btn-text').innerText = displayAddr;
+                document.getElementById('btn-connect').classList.replace('bg-blue-600', 'bg-[#2b3139]');
+                document.getElementById('network-badge').classList.remove('hidden');
+            }
+        }
+
+        async function checkNetwork() {
+            if (!provider) return;
+            const network = await provider.getNetwork();
+            if (network.chainId !== 11155111) {
+                alert("Harap ganti jaringan MetaMask kamu ke Sepolia Testnet.");
+            }
+        }
+
+        // ==========================================
+        // 3. EKSEKUSI KE BLOCKCHAIN
+        // ==========================================
+        async function executeOrder(side) {
+            if (!signer || !orbitContract) return alert("Klik tombol Connect Wallet dulu bro!");
+            if (livePrice === 0) return alert("Tunggu harga live dari market...");
+            
+            const qtyInput = parseFloat(document.getElementById('order-amount').value);
+            if (isNaN(qtyInput) || qtyInput <= 0) return alert("Kuantitas tidak valid");
+
+            const safePrice = Math.floor(livePrice * 100);
+            const safeQty = Math.floor(qtyInput * 10000); 
+            // Nama koin dinamis untuk dicatat di blockchain
+            const tradeSymbolName = `${baseCoin}/USDT`;
+
+            try {
+                const tx = await orbitContract.executeTrade(tradeSymbolName, side, safePrice, safeQty);
+                alert(`🚀 Transaksi ${side} ${baseCoin} sedang dikirim ke Blockchain!\nTunggu konfirmasi jaringan...`);
+                const receipt = await tx.wait();
+                alert(`✅ BOOM! Transaksi Sukses!\nTercatat permanen di Block Number: ${receipt.blockNumber}`);
+                loadBlockchainHistory();
+            } catch (err) { 
+                console.error("Transaksi Gagal", err);
+                alert("Transaksi dibatalkan atau gagal.");
+            }
+        }
+
+        // ==========================================
+        // 4. BACA DARI BLOCKCHAIN & HITUNG SALDO
+        // ==========================================
+        async function loadBlockchainHistory() {
+            if (!orbitContract || !userAddress) return;
+
+            try {
+                const rawTrades = await orbitContract.getTrades(userAddress);
+                
+                let histHtml = '';
+                let totalCoin = 0; 
+                
+                const reversedTrades = [...rawTrades].reverse();
+
+                if (reversedTrades.length === 0) {
+                    histHtml = `<tr><td colspan="5" class="p-4 text-center text-gray-600">Belum ada riwayat transaksi di blockchain</td></tr>`;
+                } else {
+                    reversedTrades.forEach(t => {
+                        const formattedPrice = (t.price.toNumber() / 100).toFixed(2);
+                        const qtyNumber = (t.qty.toNumber() / 10000);
+                        const formattedQty = qtyNumber.toFixed(4);
+                        const dateObj = new Date(t.timestamp.toNumber() * 1000);
+                        const timeStr = dateObj.toLocaleTimeString('id-ID');
+                        const isBuy = t.side === "BUY";
+                        
+                        // Hitung saldo HANYA untuk koin yang sedang aktif di layar
+                        if (t.symbol === `${baseCoin}/USDT`) {
+                            if (isBuy) totalCoin += qtyNumber;
+                            else totalCoin -= qtyNumber;
+                        }
+                        
+                        histHtml += `
+                            <tr class="border-b border-[#2b3139] hover:bg-[#2b3139]/30 transition">
+                                <td class="p-3 text-gray-500">${timeStr}</td>
+                                <td class="p-3 text-white font-bold">${t.symbol}</td>
+                                <td class="p-3 ${isBuy ? 'text-green-500' : 'text-red-500'}">${t.side}</td>
+                                <td class="p-3 text-white">$${formattedPrice}</td>
+                                <td class="p-3 text-white">${formattedQty}</td>
+                            </tr>`;
+                    });
+                }
+                
+                document.getElementById('history-list').innerHTML = histHtml;
+                document.getElementById('my-btc-balance').innerText = `${Math.max(0, totalCoin).toFixed(4)} ${baseCoin}`;
+
+            } catch (error) {
+                console.error("Gagal menarik data dari blockchain:", error);
+            }
+        }
+
+        // ==========================================
+        // 5. UI TOGGLE TABS
+        // ==========================================
+        function switchTab(t) {
+            document.getElementById('content-history').classList.toggle('hidden', t !== 'history');
+            document.getElementById('content-posisi').classList.toggle('hidden', t !== 'posisi');
+            document.getElementById('tab-history').className = `pb-2 transition ${t==='history'?'text-white border-b-2 border-blue-500':'text-gray-500 hover:text-white'}`;
+            document.getElementById('tab-posisi').className = `pb-2 transition ${t==='posisi'?'text-white border-b-2 border-blue-500':'text-gray-500 hover:text-white'}`;
+        }
+
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length > 0) {
+                    userAddress = accounts;
+                    updateWalletUI();
+                    loadBlockchainHistory();
+                } else {
+                    location.reload(); 
+                }
+            });
+        }
+    </script>
+</body>
+</html>

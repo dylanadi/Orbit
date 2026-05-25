@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORBIT - Paper Trading Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+        body { background-color: #0b0e11; color: #d1d4dc; font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0e11; }
+        ::-webkit-scrollbar-thumb { background: #2b3139; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #474d57; }
+
+        /* Orderbook Depth Bar */
+        .depth-bar-red { background: linear-gradient(to left, rgba(246, 70, 93, 0.15) 0%, transparent 100%); }
+        .depth-bar-green { background: linear-gradient(to left, rgba(14, 203, 129, 0.15) 0%, transparent 100%); }
+        
+        /* Glassmorphism Panels */
+        .panel { background-color: #181a20; border: 1px solid #2b3139; border-radius: 8px; }
+        
+        /* Hide Number Input Arrows */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="h-16 shrink-0 flex items-center justify-between px-6 border-b border-[#2b3139] bg-[#181a20]">
+        <div class="flex items-center gap-8">
+            <h1 class="text-2xl font-bold text-white tracking-widest">ORBIT</h1>
+            <nav class="hidden md:flex gap-6 text-sm font-medium text-gray-400">
+                <a href="#" class="text-white">Market</a>
+                <a href="#" class="hover:text-white transition">Tools</a>
+                <a href="#" class="hover:text-white transition">Porto</a>
+            </nav>
+        </div>
+       
+    </header>
+
+    <main class="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+        
+        <div class="lg:col-span-9 flex flex-col gap-4 overflow-hidden h-full">
+            
+            <div class="panel flex-1 relative w-full h-full overflow-hidden">
+                <div class="tradingview-widget-container h-full w-full">
+                    <div id="tradingview_orbit" class="h-full w-full"></div>
+                    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                    <script type="text/javascript">
+                    new TradingView.widget({
+                        "autosize": true,
+                        "symbol": "BINANCE:BTCUSDT",
+                        "interval": "15",
+                        "timezone": "Asia/Jakarta",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "id",
+                        "enable_publishing": false,
+                        "backgroundColor": "#181a20",
+                        "gridColor": "#2b3139",
+                        "hide_top_toolbar": false,
+                        "save_image": false,
+                        "container_id": "tradingview_orbit",
+                        "studies": ["IchimokuCloud@tv-basicstudies"]
+                    });
+                    </script>
+                </div>
+            </div>
+
+            <div class="panel shrink-0 min-h-[220px] h-[30%] flex flex-col">
+                <div class="grid grid-cols-5 gap-4 p-3 border-b border-[#2b3139] text-xs shrink-0">
+                    <div><p class="text-gray-500 mb-1">Saldo Akun</p><p class="font-mono text-white" id="stat-balance">$100,000.00</p></div>
+                    <div><p class="text-gray-500 mb-1">Ekuitas</p><p class="font-mono text-white" id="stat-equity">$100,000.00</p></div>
+                    <div><p class="text-gray-500 mb-1">PnL Belum Terealisasi</p><p class="font-mono text-green-500" id="stat-unrealized">$0.00</p></div>
+                    <div><p class="text-gray-500 mb-1">Margin Digunakan</p><p class="font-mono text-white" id="stat-margin">$0.00</p></div>
+                    <div><p class="text-gray-500 mb-1">Dana Tersedia</p><p class="font-mono text-white" id="stat-available">$100,000.00</p></div>
+                </div>
+
+                <div class="flex gap-6 px-4 pt-2 border-b border-[#2b3139] text-sm font-medium shrink-0">
+                    <button onclick="switchTab('posisi')" id="tab-posisi" class="text-white border-b-2 border-blue-500 pb-2">Posisi Terbuka (<span id="pos-count">0</span>)</button>
+                    <button onclick="switchTab('history')" id="tab-history" class="text-gray-500 hover:text-white pb-2">Riwayat Order</button>
+                </div>
+
+                <div id="content-posisi" class="overflow-y-auto flex-1">
+                    <table class="w-full text-xs text-left">
+                        <thead class="text-gray-500 sticky top-0 bg-[#181a20] shadow-sm">
+                            <tr>
+                                <th class="p-3 font-normal">Simbol</th>
+                                <th class="p-3 font-normal">Arah</th>
+                                <th class="p-3 font-normal">Kuantitas</th>
+                                <th class="p-3 font-normal">Harga Entri</th>
+                                <th class="p-3 font-normal">Harga Saat Ini</th>
+                                <th class="p-3 font-normal text-right">P&L</th>
+                                <th class="p-3 font-normal text-right">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="position-list" class="font-mono">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div id="content-history" class="overflow-y-auto flex-1 hidden">
+                    <table class="w-full text-xs text-left">
+                        <thead class="text-gray-500 sticky top-0 bg-[#181a20] shadow-sm">
+                            <tr>
+                                <th class="p-3 font-normal">Waktu</th>
+                                <th class="p-3 font-normal">Simbol</th>
+                                <th class="p-3 font-normal">Tipe</th>
+                                <th class="p-3 font-normal">Arah</th>
+                                <th class="p-3 font-normal">Harga</th>
+                                <th class="p-3 font-normal">Kuantitas</th>
+                                <th class="p-3 font-normal text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-list" class="font-mono">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-3 flex flex-col gap-4 overflow-hidden h-full">
+            
+            <div class="panel flex-1 flex flex-col overflow-hidden">
+                <div class="p-3 border-b border-[#2b3139] shrink-0">
+                    <div class="flex justify-between text-[11px] text-gray-500 uppercase tracking-wider">
+                        <span>Price (USDT)</span>
+                        <span>Amount (BTC)</span>
+                    </div>
+                </div>
+
+                <div id="orderbook-asks" class="flex-1 flex flex-col-reverse overflow-hidden text-xs font-mono">
+                    </div>
+
+                <div class="py-2 border-y border-[#2b3139] flex items-center justify-center gap-2 shrink-0">
+                    <span id="mid-price" class="text-xl font-bold text-green-500 font-mono">0.00</span>
+                    <span class="text-xs text-gray-500">USDT</span>
+                </div>
+
+                <div id="orderbook-bids" class="flex-1 overflow-hidden text-xs font-mono">
+                    </div>
+            </div>
+
+            <div class="panel shrink-0 p-4">
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm text-gray-400">Buying Power</span>
+                    <span class="text-lg font-bold font-mono text-white" id="buying-power">$100,000.00</span>
+                </div>
+
+                <div class="space-y-3 mb-4">
+                    <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between items-center">
+                        <span class="text-xs text-gray-500">Price</span>
+                        <input type="text" id="order-price" value="Market" disabled class="bg-transparent text-right text-sm font-mono text-white focus:outline-none w-1/2">
+                    </div>
+                    <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between items-center">
+                        <span class="text-xs text-gray-500">Amount (BTC)</span>
+                        <input type="number" id="order-amount" value="0.1" step="0.01" class="bg-transparent text-right text-sm font-mono text-white focus:outline-none w-1/2">
+                    </div>
+                    <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between items-center">
+                        <span class="text-xs text-gray-500">Total (USDT)</span>
+                        <input type="text" id="order-total" readonly class="bg-transparent text-right text-sm font-mono text-white focus:outline-none w-1/2">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="executeOrder('SELL')" class="bg-[#f6465d] hover:bg-[#ff5a71] text-white font-bold py-3 rounded transition">SELL</button>
+                    <button onclick="executeOrder('BUY')" class="bg-[#0ecb81] hover:bg-[#14d98d] text-white font-bold py-3 rounded transition">BUY</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        /* =========================================================
+           1. STATE MANAGEMENT
+        ========================================================= */
+        let state = {
+            balance: 100000.00,
+            equity: 100000.00,
+            currentPrice: 0,
+            positions: [], 
+            history: []    
+        };
+
+        const elements = {
+            midPrice: document.getElementById('mid-price'),
+            statBalance: document.getElementById('stat-balance'),
+            statEquity: document.getElementById('stat-equity'),
+            statUnrealized: document.getElementById('stat-unrealized'),
+            statAvailable: document.getElementById('stat-available'),
+            statMargin: document.getElementById('stat-margin'),
+            buyingPower: document.getElementById('buying-power'),
+            posCount: document.getElementById('pos-count'),
+            posList: document.getElementById('position-list'),
+            histList: document.getElementById('history-list'),
+            orderAmount: document.getElementById('order-amount'),
+            orderTotal: document.getElementById('order-total')
+        };
+
+        /* =========================================================
+           2. WEBSOCKET
+        ========================================================= */
+        const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@depth20@100ms/btcusdt@ticker');
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.e === '24hrTicker') {
+                state.currentPrice = parseFloat(data.c);
+                
+                elements.midPrice.innerText = state.currentPrice.toFixed(2);
+                elements.midPrice.className = data.P >= 0 ? 'text-xl font-bold text-green-500 font-mono' : 'text-xl font-bold text-red-500 font-mono';
+
+                const qty = parseFloat(elements.orderAmount.value) || 0;
+                elements.orderTotal.value = (qty * state.currentPrice).toFixed(2);
+
+                updatePortfolio();
+            }
+
+            if (data.bids && data.asks) {
+                renderOrderBook('orderbook-asks', data.asks.slice(0, 15).reverse(), 'text-[#f6465d]', 'depth-bar-red');
+                renderOrderBook('orderbook-bids', data.bids.slice(0, 15), 'text-[#0ecb81]', 'depth-bar-green');
+            }
+        };
+
+        function renderOrderBook(containerId, data, textColor, bgClass) {
+            let html = '';
+            const maxVol = Math.max(...data.map(item => parseFloat(item)));
+            
+            data.forEach(item => {
+                const price = parseFloat(item).toFixed(2);
+                const amount = parseFloat(item).toFixed(4);
+                const width = (parseFloat(item) / maxVol) * 100;
+
+                html += `
+                    <div class="relative flex justify-between px-3 py-1 hover:bg-[#2b3139] cursor-pointer">
+                        <div class="absolute right-0 top-0 bottom-0 ${bgClass} opacity-50" style="width: ${width}%"></div>
+                        <span class="${textColor} relative z-10">${price}</span>
+                        <span class="text-white relative z-10">${amount}</span>
+                    </div>`;
+            });
+            document.getElementById(containerId).innerHTML = html;
+        }
+
+        /* =========================================================
+           3. TRADING ENGINE
+        ========================================================= */
+        function executeOrder(side) {
+            if (state.currentPrice === 0) return alert("Menunggu data harga live...");
+            
+            const qty = parseFloat(elements.orderAmount.value);
+            if (isNaN(qty) || qty <= 0) return alert("Kuantitas tidak valid");
+
+            const totalCost = qty * state.currentPrice;
+
+            if (side === 'BUY' && totalCost > state.balance) {
+                return alert("Buying Power tidak mencukupi!");
+            }
+
+            state.balance -= (side === 'BUY') ? totalCost : 0; 
+
+            const posId = Math.random().toString(36).substr(2, 9);
+            state.positions.push({
+                id: posId,
+                symbol: 'BTC/USDT',
+                side: side,
+                qty: qty,
+                entryPrice: state.currentPrice
+            });
+
+            const now = new Date();
+            state.history.unshift({
+                time: now.toLocaleTimeString(),
+                symbol: 'BTC/USDT',
+                side: side,
+                price: state.currentPrice,
+                qty: qty,
+                total: totalCost
+            });
+
+            updatePortfolio();
+            renderPositions();
+            renderHistory();
+        }
+
+        function closePosition(id) {
+            const index = state.positions.findIndex(p => p.id === id);
+            if (index === -1) return;
+
+            const pos = state.positions[index];
+            const pnl = calculatePnL(pos);
+            const totalValue = (pos.qty * pos.entryPrice) + pnl;
+
+            if (pos.side === 'BUY') {
+                state.balance += totalValue;
+            } else {
+                state.balance += pnl; 
+            }
+
+            state.history.unshift({
+                time: new Date().toLocaleTimeString(),
+                symbol: 'BTC/USDT',
+                side: pos.side === 'BUY' ? 'SELL (Close)' : 'BUY (Close)',
+                price: state.currentPrice,
+                qty: pos.qty,
+                total: pos.qty * state.currentPrice
+            });
+
+            state.positions.splice(index, 1);
+            updatePortfolio();
+            renderPositions();
+            renderHistory();
+        }
+
+        function calculatePnL(pos) {
+            if (state.currentPrice === 0) return 0;
+            const diff = state.currentPrice - pos.entryPrice;
+            return pos.side === 'BUY' ? (diff * pos.qty) : (-diff * pos.qty);
+        }
+
+        function updatePortfolio() {
+            let totalUnrealized = 0;
+            let marginUsed = 0;
+
+            state.positions.forEach(pos => {
+                totalUnrealized += calculatePnL(pos);
+                marginUsed += (pos.qty * pos.entryPrice);
+            });
+
+            state.equity = state.balance + totalUnrealized + marginUsed;
+            
+            const fmt = (num) => `$${num.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            elements.statBalance.innerText = fmt(state.balance);
+            elements.statAvailable.innerText = fmt(state.balance);
+            elements.buyingPower.innerText = fmt(state.balance);
+            elements.statMargin.innerText = fmt(marginUsed);
+            elements.statEquity.innerText = fmt(state.equity);
+            
+            elements.statUnrealized.innerText = fmt(totalUnrealized);
+            elements.statUnrealized.className = totalUnrealized >= 0 ? 'font-mono text-green-500' : 'font-mono text-red-500';
+
+            renderPositions(); 
+        }
+
+        /* =========================================================
+           4. UI RENDERERS
+        ========================================================= */
+        function renderPositions() {
+            elements.posCount.innerText = state.positions.length;
+            if (state.positions.length === 0) {
+                elements.posList.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-600 italic">Tidak ada posisi terbuka</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            state.positions.forEach(pos => {
+                const pnl = calculatePnL(pos);
+                const pnlColor = pnl >= 0 ? 'text-green-500' : 'text-red-500';
+                const sideColor = pos.side === 'BUY' ? 'text-green-500' : 'text-red-500';
+
+                html += `
+                    <tr class="border-b border-[#2b3139] hover:bg-[#2b3139]/50 transition">
+                        <td class="p-3 text-white font-bold">${pos.symbol}</td>
+                        <td class="p-3 ${sideColor}">${pos.side}</td>
+                        <td class="p-3 text-white">${pos.qty.toFixed(4)}</td>
+                        <td class="p-3 text-gray-400">${pos.entryPrice.toFixed(2)}</td>
+                        <td class="p-3 text-white">${state.currentPrice.toFixed(2)}</td>
+                        <td class="p-3 text-right ${pnlColor}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</td>
+                        <td class="p-3 text-right">
+                            <button onclick="closePosition('${pos.id}')" class="text-[11px] font-sans tracking-wide bg-[#2b3139] hover:bg-gray-600 text-white px-3 py-1.5 rounded transition">CLOSE</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            elements.posList.innerHTML = html;
+        }
+
+        function renderHistory() {
+            if (state.history.length === 0) {
+                elements.histList.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-600 italic">Belum ada riwayat trading</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            state.history.forEach(hist => {
+                const isBuy = hist.side.includes('BUY');
+                html += `
+                    <tr class="border-b border-[#2b3139] hover:bg-[#2b3139]/50 transition">
+                        <td class="p-3 text-gray-500">${hist.time}</td>
+                        <td class="p-3 text-white">${hist.symbol}</td>
+                        <td class="p-3 text-gray-400">Market</td>
+                        <td class="p-3 ${isBuy ? 'text-green-500' : 'text-red-500'}">${hist.side}</td>
+                        <td class="p-3 text-white">${hist.price.toFixed(2)}</td>
+                        <td class="p-3 text-white">${hist.qty.toFixed(4)}</td>
+                        <td class="p-3 text-white text-right">$${hist.total.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            elements.histList.innerHTML = html;
+        }
+
+        function switchTab(tabId) {
+            document.getElementById('content-posisi').classList.add('hidden');
+            document.getElementById('content-history').classList.add('hidden');
+            document.getElementById('tab-posisi').className = 'text-gray-500 hover:text-white pb-2 transition';
+            document.getElementById('tab-history').className = 'text-gray-500 hover:text-white pb-2 transition';
+
+            if (tabId === 'posisi') {
+                document.getElementById('content-posisi').classList.remove('hidden');
+                document.getElementById('tab-posisi').className = 'text-white border-b-2 border-blue-500 pb-2 transition';
+            } else {
+                document.getElementById('content-history').classList.remove('hidden');
+                document.getElementById('tab-history').className = 'text-white border-b-2 border-blue-500 pb-2 transition';
+            }
+        }
+
+        // Init
+        renderPositions();
+        renderHistory();
+    </script>
+</body>
+</html>

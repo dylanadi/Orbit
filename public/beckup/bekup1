@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ORBIT - Market Dashboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap');
+
+        :root {
+            --bg-main: #060709;
+            --bg-panel: #101216;
+            --accent-green: #00d06c;
+            --accent-red: #f6465d;
+            --text-muted: #6b7280;
+            --border-color: #1f2329;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-main);
+            color: white;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .logo-font {
+            font-family: 'Playfair Display', serif;
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+        }
+
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 24px;
+            color: var(--text-muted);
+            transition: 0.2s;
+            font-weight: 500;
+        }
+
+        .sidebar-link:hover {
+            color: white;
+        }
+
+        .sidebar-link.active {
+            color: var(--accent-green);
+            position: relative;
+        }
+
+        .sidebar-link.active::after {
+            content: '•';
+            position: absolute;
+            right: 24px;
+            font-size: 22px;
+        }
+
+        .coin-card {
+            background: #0b0e11;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            transition: 0.2s;
+        }
+
+        .coin-card:hover {
+            border-color: var(--accent-green);
+            transform: translateY(-2px);
+        }
+
+        .market-row {
+            border-bottom: 1px solid var(--border-color);
+            transition: 0.15s;
+            cursor: pointer;
+        }
+
+        .market-row:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .green { color: var(--accent-green); }
+        .red { color: var(--accent-red); }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2b3139;
+            border-radius: 999px;
+        }
+
+        .apexcharts-tooltip {
+            background: #121418 !important;
+            border: 1px solid #2b3139 !important;
+            color: white !important;
+        }
+    </style>
+</head>
+
+<body class="h-screen flex overflow-hidden">
+
+    <aside class="w-64 border-r border-[#1f2329] flex flex-col justify-between shrink-0">
+        <div>
+            <div class="h-24 flex items-center px-8">
+                <h1 class="logo-font text-3xl tracking-widest font-bold">ORBIT</h1>
+            </div>
+
+            <nav class="space-y-2 mt-2 text-sm">
+                <a href="#" class="sidebar-link"><i class="bi bi-grid text-lg"></i> Dashboard</a>
+                <a href="#" class="sidebar-link active"><i class="bi bi-bar-chart-fill text-lg"></i> Market</a>
+                <a href="#" class="sidebar-link"><i class="bi bi-wallet2 text-lg"></i> Wallet</a>
+                <a href="#" class="sidebar-link"><i class="bi bi-receipt text-lg"></i> Tax Center</a>
+            </nav>
+        </div>
+
+        <div class="p-8">
+            <a href="#" class="text-xs text-gray-500 hover:text-white flex items-center gap-2">
+                Terms of Use <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col overflow-hidden">
+
+        <header class="h-20 shrink-0 flex items-center justify-between px-8">
+            <div>
+                <h2 class="text-2xl font-bold">Selamat datang kembali, Mulyono! 👋</h2>
+                <p class="text-sm text-gray-400 mt-1">Berikut adalah gambaran portofolio serta ringkasan pasar anda.</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <div class="text-right">
+                    <div class="font-semibold text-sm tracking-wide">MetaMask</div>
+                    <div class="text-[10px] green flex items-center justify-end gap-1 mt-0.5">
+                        <i class="bi bi-patch-check-fill"></i> Verified Wallet
+                    </div>
+                </div>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8" alt="MetaMask" />
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto px-8 pb-8 pt-2 flex gap-6">
+
+            <div class="flex-1 flex flex-col gap-6 min-w-[650px]">
+
+                <div class="panel p-6">
+                    <div class="flex justify-between items-start mb-6">
+                        <div>
+                            <h3 class="font-semibold text-lg">Market Coins</h3>
+                            <p class="text-xs text-gray-500">Top Coins 24H</p>
+                        </div>
+                        <div class="border border-[#2b3139] rounded-full px-4 py-2 flex items-center gap-2">
+                            <i class="bi bi-search text-xs text-gray-500"></i>
+                            <input type="text" id="search-input" placeholder="Search Coin Name" class="bg-transparent text-xs focus:outline-none w-32" />
+                        </div>
+                    </div>
+
+                    <div id="top-cards-container" class="grid grid-cols-4 gap-4">
+                        <div class="text-sm text-gray-500 animate-pulse">Memuat market...</div>
+                    </div>
+                </div>
+
+                <div class="panel p-6 flex-1 flex flex-col min-h-[400px]">
+                    <div class="flex gap-3 mb-6">
+                        <button class="bg-[#00d06c] text-black text-xs font-bold px-6 py-2 rounded-full">All</button>
+                        <button class="border border-[#2b3139] text-gray-400 hover:text-white hover:bg-[#2b3139] text-xs font-semibold px-6 py-2 rounded-full transition">Pocket</button>
+                        <button class="border border-[#2b3139] text-gray-400 hover:text-white hover:bg-[#2b3139] text-xs font-semibold px-6 py-2 rounded-full transition">Favorite</button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="border-b border-[#2b3139] text-gray-400 uppercase text-[11px] tracking-wider">
+                                <tr>
+                                    <th class="pb-3 font-medium px-2 w-10">#</th>
+                                    <th class="pb-3 font-medium">Coin Name</th>
+                                    <th class="pb-3 font-medium">Coin Price</th>
+                                    <th class="pb-3 font-medium">24H</th>
+                                    <th class="pb-3 font-medium">24H High</th>
+                                    <th class="pb-3 font-medium">24H Low</th>
+                                    <th class="pb-3 font-medium text-right pr-2">Chart</th>
+                                </tr>
+                            </thead>
+                            <tbody id="market-table-body">
+                                <tr><td colspan="7" class="py-10 text-center text-gray-500 animate-pulse">Memuat market...</td></tr>
+                            </tbody>
+                        </table>
+                        
+                        <div class="flex justify-center mt-6 text-gray-500 text-xs gap-2">
+                            <i class="bi bi-caret-left-fill cursor-pointer hover:text-white transition"></i> 
+                            <span class="cursor-pointer hover:text-white transition">1</span> 
+                            <span class="text-white font-bold cursor-pointer">2</span> 
+                            <span>...</span> 
+                            <span class="cursor-pointer hover:text-white transition">10</span> 
+                            <i class="bi bi-caret-right-fill cursor-pointer hover:text-white transition"></i>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="w-[320px] shrink-0">
+                <div class="panel p-6 h-full flex flex-col relative">
+
+                    <div class="mb-2">
+                        <div id="porto-total" class="text-4xl font-bold tracking-tight mb-1">$0.00</div>
+                        <div class="green text-xs font-medium">+ 1,032.09 (▲ 1.74%)</div>
+                    </div>
+
+                    <div class="relative h-24 border-b border-[#1f2329] flex items-center justify-center mb-6">
+                        <span class="absolute left-0 bottom-4 text-[9px] text-gray-600 font-mono tracking-wider">$7,063.91</span>
+                        <svg viewBox="0 0 100 30" class="w-full h-full opacity-60 px-2 mt-2">
+                            <path d="M0,20 L10,22 L20,25 L30,23 L40,24 L50,26 L60,25 L70,22 L80,24 L90,20 L100,15" fill="none" stroke="#6b7280" stroke-width="1.5"/>
+                        </svg>
+                        <span class="absolute right-0 top-3 text-[9px] text-gray-600 font-mono tracking-wider">$8,096.00</span>
+                    </div>
+
+                    <div>
+                        <h3 class="font-semibold text-sm mb-4">Portofolio</h3>
+                        <div id="porto-list" class="space-y-4">
+                            <div class="text-xs text-gray-500 animate-pulse">Memuat portfolio...</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex-1">
+                        <h3 class="font-semibold text-sm mb-4">P&I</h3>
+                        <div class="h-24 flex items-end justify-between gap-1">
+                            <div class="w-full h-[60%] bg-[#00d06c] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">Jan</span></div>
+                            <div class="w-full h-[40%] bg-[#f6465d] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">Feb</span></div>
+                            <div class="w-full h-[80%] bg-[#00d06c] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">Mar</span></div>
+                            <div class="w-full h-[90%] bg-[#f6465d] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">Apr</span></div>
+                            <div class="w-full h-[50%] bg-[#00d06c] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">May</span></div>
+                            <div class="w-full h-[70%] bg-[#f6465d] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">Jun</span></div>
+                            <div class="w-full h-[100%] bg-[#00d06c] relative"><span class="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[8px] text-gray-500">Jul</span></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-10">
+                        <button class="w-full bg-[#00d06c] text-black font-bold text-xs py-3 px-4 rounded-lg shadow-lg flex items-center justify-between hover:bg-[#00e676] transition active:scale-95">
+                            <div class="flex gap-1">
+                                <div class="w-3 h-3 bg-white rounded-sm"></div>
+                                <div class="w-3 h-3 bg-white rounded-sm"></div>
+                            </div>
+                            <span>Minta Pendapat Bloop!</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <aside class="w-20 bg-[#00d06c] shrink-0 flex flex-col items-center pt-8">
+        <div class="w-12 h-16 bg-white rounded-2xl flex items-center justify-center shadow-lg cursor-pointer hover:scale-105 transition">
+            <div class="w-6 h-6 bg-gray-800 rounded-md"></div>
+        </div>
+    </aside>
+
+<script>
+    const tableBody = document.getElementById('market-table-body');
+    const cardsContainer = document.getElementById('top-cards-container');
+
+    // =========================
+    // 1. FETCH MARKET DATA
+    // =========================
+    async function fetchCryptoData() {
+        try {
+            const res = await fetch('/api/crypto');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (!Array.isArray(data)) throw new Error('Format API bukan array');
+
+            renderTopCards(data);
+            renderMarketTable(data);
+            
+            // Jaga-jaga: re-apply filter search yang sedang aktif
+            searchCoin();
+        } catch (err) {
+            console.error(err);
+            tableBody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-red-500">Gagal memuat coin. Server Node.js mati?</td></tr>`;
+            cardsContainer.innerHTML = `<div class="text-red-500 text-sm">Gagal memuat cards.</div>`;
+        }
+    }
+
+    // =========================
+    // 2. RENDER TOP CARDS
+    // =========================
+    function renderTopCards(data) {
+        cardsContainer.innerHTML = '';
+        data.slice(0, 4).forEach(coin => {
+            const price = coin.current_price ?? 0;
+            // PERBAIKAN DARI CHATGPT: Menggunakan ?? untuk fallback aman
+            const percent = coin.price_change_percentage_24h ?? 0;
+            const isPositive = percent >= 0;
+            const symbol = (coin.symbol || '???').toUpperCase();
+            const targetSymbol = symbol + 'USDT';
+            const colorClass = isPositive ? 'green' : 'red';
+            const arrow = isPositive ? '▲' : '▼';
+
+            const card = document.createElement('div');
+            card.className = 'coin-card p-4 cursor-pointer flex flex-col justify-between';
+            card.setAttribute('onclick', `window.location.href='/index.html?symbol=${targetSymbol}'`);
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-2">
+                        <img src="${coin.image}" class="w-6 h-6 rounded-full">
+                        <span class="text-sm font-medium">${coin.name}</span>
+                    </div>
+                </div>
+                <div class="flex justify-between items-end">
+                    <div>
+                        <div class="font-bold text-[13px]">$${price.toLocaleString('en-US')}</div>
+                        <div class="${colorClass} text-[10px] mt-1">${isPositive ? '+' : ''}${percent.toFixed(2)}% ${arrow}</div>
+                    </div>
+                    <div id="chart-card-${coin.id}" class="w-16"></div>
+                </div>
+            `;
+            cardsContainer.appendChild(card);
+
+            // PERBAIKAN DARI CHATGPT: Pengecekan mendalam untuk sparkline
+            if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
+                renderSparkline(`chart-card-${coin.id}`, coin.sparkline_in_7d.price);
+            }
+        });
+    }
+
+    // =========================
+    // 3. RENDER TABLE
+    // =========================
+    function renderMarketTable(data) {
+        tableBody.innerHTML = '';
+        data.forEach((coin, index) => {
+            const price = coin.current_price ?? 0;
+            // PERBAIKAN DARI CHATGPT: Menggunakan ?? untuk fallback aman
+            const percent = coin.price_change_percentage_24h ?? 0;
+            const high = coin.high_24h ?? 0;
+            const low = coin.low_24h ?? 0;
+            const isPositive = percent >= 0;
+            const targetSymbol = (coin.symbol || '').toUpperCase() + 'USDT';
+            const colorClass = isPositive ? 'green' : 'red';
+            const arrow = isPositive ? '▲' : '▼';
+
+            const row = document.createElement('tr');
+            row.className = 'market-row group';
+            row.setAttribute('onclick', `window.location.href='/index.html?symbol=${targetSymbol}'`);
+
+            row.innerHTML = `
+                <td class="py-4 px-2 text-gray-500 text-xs">${index + 1}</td>
+                <td class="py-4 flex items-center gap-3">
+                    <img src="${coin.image}" class="w-5 h-5 rounded-full">
+                    <div>
+                        <div class="font-medium text-sm text-white coin-name">${coin.name}</div>
+                    </div>
+                </td>
+                <td class="py-4 text-sm text-white">$${price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6})}</td>
+                <td class="py-4 text-xs ${colorClass}">${isPositive ? '+' : ''}${percent.toFixed(2)}% ${arrow}</td>
+                <td class="py-4 text-xs ${colorClass}">+${percent.toFixed(2)}% ${arrow}</td>
+                <td class="py-4 text-xs ${colorClass}">+${percent.toFixed(2)}% ${arrow}</td>
+                <td class="py-4 text-right pr-2">
+                    <div id="chart-table-${coin.id}" class="inline-block w-16 opacity-80 group-hover:opacity-100 transition"></div>
+                </td>
+            `;
+            tableBody.appendChild(row);
+
+            // PERBAIKAN DARI CHATGPT: Pengecekan mendalam untuk sparkline
+            if (coin.sparkline_in_7d && coin.sparkline_in_7d.price) {
+                renderSparkline(`chart-table-${coin.id}`, coin.sparkline_in_7d.price);
+            }
+        });
+    }
+
+    // =========================
+    // 4. APEXCHARTS SPARKLINE
+    // =========================
+    function renderSparkline(id, seriesData) {
+        const el = document.getElementById(id);
+        if (!el || !Array.isArray(seriesData) || seriesData.length === 0) return;
+
+        new ApexCharts(el, {
+            chart: { type: 'line', height: 28, width: 60, sparkline: { enabled: true }, animations: { enabled: false } },
+            stroke: { curve: 'smooth', width: 1.5, colors: ['#00d06c'] },
+            series: [{ data: seriesData }],
+            tooltip: { enabled: false }
+        }).render();
+    }
+
+    // =========================
+    // 5. FITUR PENCARIAN (SEARCH)
+    // =========================
+    function searchCoin() {
+        const searchInput = document.getElementById('search-input');
+        if (!searchInput) return;
+
+        const input = searchInput.value.toLowerCase();
+        const rows = tableBody.getElementsByTagName('tr');
+
+        for (let i = 0; i < rows.length; i++) {
+            // PERBAIKAN DARI CHATGPT: Baca seluruh teks yang ada di baris tersebut
+            const textValue = rows[i].textContent || rows[i].innerText;
+            
+            if (textValue.toLowerCase().indexOf(input) > -1) {
+                rows[i].style.display = "";
+            } else {
+                rows[i].style.display = "none";
+            }
+        }
+    }
+
+    document.getElementById('search-input').addEventListener('keyup', searchCoin);
+
+    // =========================
+    // 6. DATA PORTOFOLIO NODE.JS
+    // =========================
+    async function fetchPortfolio() {
+        try {
+            const res = await fetch('/api/portfolio');
+            if (!res.ok) throw new Error('Portfolio API Error');
+            const data = await res.json();
+
+            document.getElementById('porto-total').innerText = `$${(data.balance || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            const list = document.getElementById('porto-list');
+
+            if (!data.positions || data.positions.length === 0) {
+                list.innerHTML = `<div class="text-xs text-gray-500">Belum ada aset terbuka.</div>`;
+                return;
+            }
+
+            let html = '';
+            data.positions.forEach(pos => {
+                const total = (pos.qty || 0) * (pos.entryPrice || 0);
+                const cleanSymbol = pos.symbol.replace('/USDT', '');
+                html += `
+                    <div class="flex items-center justify-between text-xs">
+                        <div class="flex items-center gap-2 text-white">
+                            <span class="w-5 h-5 rounded-full bg-[#f7931a] flex items-center justify-center">
+                                <i class="bi bi-currency-bitcoin text-[10px] text-white"></i>
+                            </span>
+                            ${cleanSymbol}
+                        </div>
+                        <span class="green">+3% ▲</span>
+                        <span class="text-white font-medium">$${total.toLocaleString('en-US')}</span>
+                    </div>`;
+            });
+            list.innerHTML = html;
+        } catch (err) {
+            console.error(err);
+            document.getElementById('porto-list').innerHTML = `<div class="text-red-500 text-xs">Node.js Offline</div>`;
+        }
+    }
+
+    // =========================
+    // 7. INISIALISASI
+    // =========================
+    fetchCryptoData();
+    fetchPortfolio();
+    setInterval(fetchCryptoData, 10000);
+    setInterval(fetchPortfolio, 3000);
+
+</script>
+</body>
+</html>
