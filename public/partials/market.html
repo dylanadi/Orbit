@@ -1,0 +1,555 @@
+<!-- public/partials/market.html -->
+<!-- ⚠️ PARTIAL ONLY - Tidak ada <html>, <head>, <body> -->
+
+<style>
+    .coin-card { cursor: pointer; transition: all 0.2s; }
+    .coin-card:hover { border-color: #00d06c; transform: translateY(-2px); }
+    .market-row { cursor: pointer; transition: background 0.15s; }
+    .market-row:hover { background: rgba(43,49,57,0.3); }
+    
+    /* Portfolio Item */
+    .portfolio-item {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 12px; border-radius: 8px; background: rgba(11,14,17,0.5);
+        border: 1px solid #2b3139; transition: border-color 0.2s;
+    }
+    .portfolio-item:hover { border-color: #00d06c/30; }
+    
+    /* P&L Badge */
+    .pnl-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    }
+    .pnl-badge.profit { background: rgba(0,208,108,0.15); color: #00d06c; }
+    .pnl-badge.loss { background: rgba(246,70,93,0.15); color: #f6465d; }
+    
+    /* Asset Icon */
+    .asset-icon {
+        width: 32px; height: 32px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; font-weight: 600; color: white; flex-shrink: 0;
+    }
+    .asset-icon.btc { background: linear-gradient(135deg, #f7931a 0%, #ffab40 100%); }
+    .asset-icon.eth { background: linear-gradient(135deg, #627eea 0%, #8a99e8 100%); }
+    .asset-icon.usdt { background: linear-gradient(135deg, #26a17b 0%, #4dd09e 100%); }
+    .asset-icon.sol { background: linear-gradient(135deg, #9945ff 0%, #14f195 100%); }
+    .asset-icon.default { background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%); }
+    
+    /* P&L Bar Chart */
+    .pnl-chart {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        height: 100px; gap: 6px; padding: 0 4px;
+    }
+    .pnl-bar {
+        flex: 1; min-width: 24px; border-radius: 4px 4px 0 0;
+        transition: all 0.2s; position: relative; cursor: pointer;
+    }
+    .pnl-bar.profit { background: linear-gradient(180deg, #00d06c 0%, #00a859 100%); }
+    .pnl-bar.loss { background: linear-gradient(180deg, #f6465d 0%, #d63045 100%); }
+    .pnl-bar:hover { opacity: 0.9; transform: scaleY(1.02); transform-origin: bottom; }
+    .pnl-bar::after {
+        content: attr(data-month);
+        position: absolute; bottom: -22px; left: 50%;
+        transform: translateX(-50%); font-size: 9px; color: #6b7280;
+    }
+    .pnl-bar::before {
+        content: attr(data-tooltip);
+        position: absolute; top: -32px; left: 50%;
+        transform: translateX(-50%); font-size: 10px; color: white;
+        background: #1f2329; padding: 4px 8px; border-radius: 6px;
+        opacity: 0; transition: opacity 0.2s; pointer-events: none;
+        white-space: nowrap; z-index: 10;
+    }
+    .pnl-bar:hover::before { opacity: 1; }
+    
+    /* Error State */
+    .error-state {
+        text-align: center; padding: 24px; color: #f6465d;
+    }
+    .error-state i { font-size: 32px; margin-bottom: 12px; display: block; }
+    .error-state button {
+        margin-top: 12px; padding: 8px 16px; background: #2b3139;
+        border: 1px solid #374151; border-radius: 6px; color: white;
+        cursor: pointer; transition: background 0.2s;
+    }
+    .error-state button:hover { background: #374151; }
+</style>
+
+<div class="flex-1 flex flex-col overflow-hidden">
+
+    <!-- HEADER (Sync with Global) -->
+    <header class="h-20 shrink-0 flex items-center justify-between px-8">
+        <div>
+            <h2 class="text-2xl font-bold text-white">Market Overview</h2>
+            <p class="text-sm text-gray-400 mt-1">Pantau harga crypto dan kelola portofolio anda.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="text-right">
+                <div class="font-semibold text-sm text-white">MetaMask</div>
+                <!-- ✅ Sync dengan global wallet status dari index.html -->
+                <div id="wallet-status" class="text-[10px] text-gray-500 flex items-center justify-end gap-1 mt-0.5">
+                    <i class="bi bi-wallet"></i> Not Connected
+                </div>
+            </div>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8" alt="MetaMask" />
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto px-8 py-6 flex gap-6">
+        
+        <!-- LEFT: MARKET DATA -->
+        <div class="flex-1 flex flex-col gap-6 min-w-[600px]">
+            
+            <!-- Top Coins Cards -->
+            <div class="panel p-6">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h3 class="font-semibold text-lg text-white">Top Coins</h3>
+                        <p class="text-xs text-gray-500">Pergerakan harga 24 jam terakhir</p>
+                    </div>
+                    <div class="border border-[#2b3139] rounded-full px-4 py-2 flex items-center gap-2 bg-[#0b0e11]">
+                        <i class="bi bi-search text-xs text-gray-500"></i>
+                        <input type="text" id="search-input" placeholder="Cari coin..." class="bg-transparent text-xs text-white focus:outline-none w-32 placeholder-gray-600" />
+                    </div>
+                </div>
+                <div id="top-cards" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="text-sm text-gray-500 animate-pulse col-span-4 text-center py-4">Memuat data...</div>
+                </div>
+            </div>
+
+            <!-- Market Table -->
+            <div class="panel p-6 flex-1 flex flex-col">
+                <div class="flex gap-3 mb-6">
+                    <button class="bg-[#00d06c] text-black text-xs font-bold px-5 py-2 rounded-full">Semua</button>
+                    <button class="border border-[#2b3139] text-gray-400 hover:text-white text-xs px-5 py-2 rounded-full transition">Favorit</button>
+                </div>
+                <div class="overflow-x-auto flex-1">
+                    <table class="w-full text-sm text-left">
+                        <thead class="border-b border-[#2b3139] text-gray-400 uppercase text-[11px]">
+                            <tr>
+                                <th class="pb-3 px-2 w-10">#</th>
+                                <th class="pb-3">Coin</th>
+                                <th class="pb-3">Harga</th>
+                                <th class="pb-3">24H</th>
+                                <th class="pb-3">High</th>
+                                <th class="pb-3">Low</th>
+                                <th class="pb-3 text-right pr-2">Trend</th>
+                            </tr>
+                        </thead>
+                        <tbody id="market-body">
+                            <tr><td colspan="7" class="py-10 text-center text-gray-500">Memuat...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: PORTFOLIO PANEL -->
+        <div class="w-[320px] shrink-0">
+            
+            <!-- Login Panel (show if not connected) -->
+            <div id="panel-login" class="panel p-6 h-full flex flex-col items-center">
+                <div class="flex-1 flex flex-col items-center justify-center">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-32 h-32 mb-4" alt="MetaMask" />
+                    <div class="text-center">
+                        <div class="text-white text-sm mb-1">Connect with</div>
+                        <div class="text-[#e85d04] text-2xl font-bold">MetaMask</div>
+                        <div class="text-gray-500 text-xs mt-2">Untuk melihat portofolio</div>
+                    </div>
+                </div>
+                <button onclick="connectWallet()" class="w-full mt-6 bg-[#e85d04] text-white font-semibold py-3 rounded-lg hover:bg-[#f3701a] transition">
+                    <i class="bi bi-wallet2 me-2"></i>Connect Wallet
+                </button>
+            </div>
+
+            <!-- Portfolio Panel (show if connected) -->
+            <div id="panel-portfolio" class="panel p-6 h-full flex flex-col hidden">
+                
+                <!-- Total Portfolio Value -->
+                <div class="mb-4 pb-4 border-b border-[#1f2329]">
+                    <div class="text-xs text-gray-400 mb-1">Total Nilai Portofolio</div>
+                    <div id="portfolio-total" class="text-2xl font-bold text-white">Rp 0</div>
+                    <div id="portfolio-pnl" class="text-sm mt-1">
+                        <span class="pnl-badge profit hidden" id="pnl-profit">
+                            <i class="bi bi-arrow-up-right"></i> <span id="pnl-val-profit">+Rp 0</span>
+                        </span>
+                        <span class="pnl-badge loss hidden" id="pnl-loss">
+                            <i class="bi bi-arrow-down-right"></i> <span id="pnl-val-loss">-Rp 0</span>
+                        </span>
+                        <span id="pnl-pct" class="text-xs text-gray-500 ml-2">(0.00%)</span>
+                    </div>
+                </div>
+
+                <!-- Asset List -->
+                <div class="mb-4 pb-4 border-b border-[#1f2329] flex-1 overflow-y-auto" style="max-height: 220px;">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-gray-400 uppercase">Aset Crypto</span>
+                        <button onclick="refreshPortfolio()" class="text-[10px] text-[#00d06c] hover:underline">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="asset-list" class="space-y-2">
+                        <div class="text-xs text-gray-500 text-center py-4">Belum ada aset crypto</div>
+                    </div>
+                </div>
+
+                <!-- Monthly P&L Chart -->
+                <div class="mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-semibold text-gray-400 uppercase">P&L Bulanan</span>
+                        <span class="text-[10px] text-gray-500">6 Bulan</span>
+                    </div>
+                    <div id="pnl-chart" class="pnl-chart">
+                        <div class="text-[10px] text-gray-500 text-center w-full">Memuat grafik...</div>
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="navigate('wallet')" class="w-full mt-auto bg-[#00d06c] hover:bg-[#00e676] text-black font-semibold text-sm py-3 rounded-lg transition flex items-center justify-center gap-2">
+                    <i class="bi bi-wallet"></i>
+                    <span>Kelola Wallet</span>
+                </button>
+            </div>
+        </div>
+    </main>
+</div>
+<script id="market-script">
+// ==========================================
+// MARKET PARTIAL - FIXED & SCOPE-SAFE
+// ==========================================
+
+// ✅ Gunakan prefix unik untuk hindari bentrok variabel global
+const MARKET_IDR_RATE = 15000; // 1 USD = 15.000 IDR
+
+let marketData = [];
+let sparklineCharts = [];
+let refreshInterval = null;
+
+// Asset icon config dengan prefix unik
+const MARKET_ASSET_ICONS = {
+    'BTC': { class: 'btc', symbol: '₿', name: 'bitcoin' },
+    'ETH': { class: 'eth', symbol: 'Ξ', name: 'ethereum' },
+    'USDT': { class: 'usdt', symbol: '$', name: 'tether' },
+    'USDC': { class: 'usdt', symbol: '$', name: 'usd-coin' },
+    'BNB': { class: 'default', symbol: 'B', name: 'binancecoin' },
+    'SOL': { class: 'sol', symbol: 'S', name: 'solana' },
+    'ADA': { class: 'default', symbol: 'A', name: 'cardano' },
+    'DOT': { class: 'default', symbol: '●', name: 'polkadot' },
+    'MATIC': { class: 'default', symbol: 'M', name: 'matic-network' },
+};
+
+// ==========================================
+// INIT
+// ==========================================
+function initMarket() {
+    console.log('🔧 Initializing market partial...');
+    syncWalletFromGlobal();
+    setupWalletListener();
+    fetchMarketData();
+    setupSearch();
+    startAutoRefresh();
+    console.log('✅ Market partial initialized');
+}
+
+function syncWalletFromGlobal() {
+    const globalAddress = window.userAddress || null;
+    updateWalletUI(globalAddress);
+    if (globalAddress) {
+        fetchPortfolio();
+        fetchPnLChart();
+    }
+}
+
+function setupWalletListener() {
+    window.addEventListener('wallet:statusChanged', (e) => {
+        console.log('📡 Market: wallet status changed', e.detail);
+        updateWalletUI(e.detail.address);
+        if (e.detail.connected) {
+            fetchPortfolio();
+            fetchPnLChart();
+        } else {
+            clearPortfolio();
+        }
+    });
+}
+
+function updateWalletUI(address) {
+    const status = document.getElementById('wallet-status');
+    const login = document.getElementById('panel-login');
+    const portfolio = document.getElementById('panel-portfolio');
+    
+    if (!status || !login || !portfolio) return;
+    
+    if (address) {
+        const short = `${address.slice(0,6)}...${address.slice(-4)}`;
+        status.innerHTML = `<i class="bi bi-patch-check-fill text-[#00d06c]"></i> ${short}`;
+        status.className = 'text-[10px] text-[#00d06c] flex items-center justify-end gap-1 mt-0.5 font-medium';
+        login.classList.add('hidden');
+        portfolio.classList.remove('hidden');
+    } else {
+        status.innerHTML = '<i class="bi bi-wallet"></i> Not Connected';
+        status.className = 'text-[10px] text-gray-500 flex items-center justify-end gap-1 mt-0.5';
+        login.classList.remove('hidden');
+        portfolio.classList.add('hidden');
+    }
+}
+
+function clearPortfolio() {
+    const totalEl = document.getElementById('portfolio-total');
+    const listEl = document.getElementById('asset-list');
+    const chartEl = document.getElementById('pnl-chart');
+    const profitBadge = document.getElementById('pnl-profit');
+    const lossBadge = document.getElementById('pnl-loss');
+    
+    if (totalEl) totalEl.textContent = 'Rp 0';
+    if (listEl) listEl.innerHTML = '<div class="text-xs text-gray-500 text-center py-4">Belum ada aset</div>';
+    if (chartEl) chartEl.innerHTML = '<div class="text-[10px] text-gray-500 text-center">Butuh wallet</div>';
+    if (profitBadge) profitBadge.classList.add('hidden');
+    if (lossBadge) lossBadge.classList.add('hidden');
+}
+
+function startAutoRefresh() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(fetchMarketData, 30000);
+}
+
+// ==========================================
+// MARKET DATA
+// ==========================================
+async function fetchMarketData() {
+    const container = document.getElementById('top-cards');
+    const tbody = document.getElementById('market-body');
+    
+    try {
+        console.log('🔄 Fetching market data from /api/crypto...');
+        const res = await fetch('/api/crypto');
+        console.log('📥 Response status:', res.status);
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        
+        const data = await res.json();
+        console.log('✅ Fetched', data.length, 'coins');
+        
+        if (!Array.isArray(data)) throw new Error('Invalid API response: not an array');
+        
+        marketData = data;
+        renderTopCards(data.slice(0, 4));
+        renderMarketTable(data);
+        
+    } catch (err) {
+        console.error('❌ Market fetch error:', err);
+        const errorHTML = `<div class="error-state col-span-4"><i class="bi bi-exclamation-triangle"></i><div class="text-sm">Gagal memuat data market</div><div class="text-xs text-gray-500 mt-1">${err.message}</div><button onclick="fetchMarketData()"><i class="bi bi-arrow-clockwise me-1"></i>Retry</button></div>`;
+        if (container) container.innerHTML = errorHTML;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-red-500">Gagal memuat data market<br><span class="text-xs">${err.message}</span></td></tr>`;
+    }
+}
+
+function renderTopCards(coins) {
+    const el = document.getElementById('top-cards');
+    if (!el) return;
+    if (!coins?.length) { el.innerHTML = '<div class="text-sm text-gray-500 col-span-4 text-center py-4">Tidak ada data coin</div>'; return; }
+    
+    el.innerHTML = coins.map(c => {
+        const sym = (c.symbol||'???').toUpperCase();
+        const price = c.current_price ?? 0;
+        const change = c.price_change_percentage_24h ?? 0;
+        const pos = change >= 0;
+        const col = pos ? 'text-[#00d06c]' : 'text-[#f6465d]';
+        const icon = pos ? '<i class="bi bi-arrow-up-short"></i>' : '<i class="bi bi-arrow-down-short"></i>';
+        return `<div class="coin-card p-4 bg-[#0b0e11] border border-[#2b3139] rounded-xl hover:border-[#00d06c] transition" onclick="goToTrading('${sym}')"><div class="flex items-center gap-3 mb-3"><img src="${c.image}" class="w-8 h-8 rounded-full" alt="${c.name}" onerror="this.style.display='none'"><div><div class="font-semibold text-white text-sm">${c.name}</div><div class="text-xs text-gray-500">${sym}</div></div></div><div class="flex justify-between items-end"><div><div class="font-bold text-white">Rp ${fmtIDR(price * MARKET_IDR_RATE)}</div><div class="${col} text-xs flex items-center gap-1">${pos?'+':''}${change.toFixed(2)}% ${icon}</div></div><div id="spark-${c.id}" class="w-16 h-8"></div></div></div>`;
+    }).join('');
+    
+    setTimeout(() => {
+        coins.forEach(c => {
+            if (c.sparkline_in_7d?.price?.length) renderSpark(`spark-${c.id}`, c.sparkline_in_7d.price, c.price_change_percentage_24h >= 0 ? '#00d06c' : '#f6465d');
+        });
+    }, 50);
+}
+
+function renderMarketTable(coins) {
+    const tbody = document.getElementById('market-body');
+    if (!tbody) return;
+    if (!coins?.length) { tbody.innerHTML = '<tr><td colspan="7" class="py-10 text-center text-gray-500">Tidak ada data</td></tr>'; return; }
+    
+    tbody.innerHTML = coins.map((c, i) => {
+        const sym = (c.symbol || '').toUpperCase();
+        const price = c.current_price ?? 0;
+        const change = c.price_change_percentage_24h ?? 0;
+        const pos = change >= 0;
+        const col = pos ? 'text-[#00d06c]' : 'text-[#f6465d]';
+        const icon = pos ? '<i class="bi bi-arrow-up-short"></i>' : '<i class="bi bi-arrow-down-short"></i>';
+        const high = c.high_24h ?? 0;
+        const low = c.low_24h ?? 0;
+        return `<tr class="market-row" onclick="goToTrading('${sym}')"><td class="py-4 px-2 text-gray-500 text-xs">${i + 1}</td><td class="py-4 flex items-center gap-3"><img src="${c.image}" class="w-6 h-6 rounded-full" alt="${c.name}" onerror="this.style.display='none'"><div><div class="text-sm text-white">${c.name}</div><div class="text-xs text-gray-500">${sym}</div></div></td><td class="py-4 text-sm text-white font-mono">Rp ${fmtIDR(price * MARKET_IDR_RATE)}</td><td class="py-4 text-xs font-medium ${col}">${pos?'+':''}${change.toFixed(2)}% ${icon}</td><td class="py-4 text-xs text-gray-400 font-mono">Rp ${fmtIDR(high * MARKET_IDR_RATE)}</td><td class="py-4 text-xs text-gray-400 font-mono">Rp ${fmtIDR(low * MARKET_IDR_RATE)}</td><td class="py-4 text-right pr-2"><div id="spark-t-${c.id}" class="w-16 h-8 inline-block"></div></td></tr>`;
+    }).join('');
+    
+    setTimeout(() => {
+        coins.forEach(c => {
+            if (c.sparkline_in_7d?.price?.length) renderSpark(`spark-t-${c.id}`, c.sparkline_in_7d.price, c.price_change_percentage_24h >= 0 ? '#00d06c' : '#f6465d');
+        });
+    }, 50);
+}
+
+function renderSpark(id, data, color) {
+    const el = document.getElementById(id);
+    if (!el || !data?.length || typeof ApexCharts === 'undefined') return;
+    try {
+        const existing = sparklineCharts.find(x => x.el === id);
+        if (existing?.chart) existing.chart.destroy();
+        const chart = new ApexCharts(el, { chart: { type: 'line', height: 32, width: 64, sparkline: { enabled: true }, toolbar: { show: false } }, stroke: { curve: 'smooth', width: 2, colors: [color] }, series: [{ data: data.slice(-24) }], tooltip: { enabled: false }, theme: { mode: 'dark' }, grid: { padding: { left: 0, right: 0, top: 0, bottom: 0 } } });
+        chart.render();
+        sparklineCharts.push({ el: id, chart });
+    } catch (e) { console.error('Sparkline error:', e); }
+}
+
+// ==========================================
+// PORTFOLIO
+// ==========================================
+async function fetchPortfolio() {
+    const address = window.userAddress;
+    if (!address) return;
+    try {
+        const res = await fetch(`/api/portfolio/assets/${address}`);
+        const data = await res.json();
+        if (data.success) renderPortfolio(data.assets, data.summary);
+    } catch (e) {
+        console.error('Portfolio fetch error:', e);
+        const listEl = document.getElementById('asset-list');
+        if (listEl) listEl.innerHTML = '<div class="text-xs text-red-500 text-center py-4">Gagal memuat portofolio</div>';
+    }
+}
+
+function renderPortfolio(assets, summary) {
+    const totalEl = document.getElementById('portfolio-total');
+    if (totalEl && summary?.totalValue) totalEl.textContent = fmtIDR(summary.totalValue);
+    
+    const pnlBadgeProfit = document.getElementById('pnl-profit');
+    const pnlBadgeLoss = document.getElementById('pnl-loss');
+    const pnlValProfit = document.getElementById('pnl-val-profit');
+    const pnlValLoss = document.getElementById('pnl-val-loss');
+    const pnlPct = document.getElementById('pnl-pct');
+    
+    if (summary?.totalPnl !== undefined) {
+        if (parseFloat(summary.totalPnl) >= 0) {
+            if (pnlBadgeProfit) pnlBadgeProfit.classList.remove('hidden');
+            if (pnlBadgeLoss) pnlBadgeLoss.classList.add('hidden');
+            if (pnlValProfit) pnlValProfit.textContent = `+${fmtIDR(summary.totalPnl)}`;
+        } else {
+            if (pnlBadgeProfit) pnlBadgeProfit.classList.add('hidden');
+            if (pnlBadgeLoss) pnlBadgeLoss.classList.remove('hidden');
+            if (pnlValLoss) pnlValLoss.textContent = `-${fmtIDR(Math.abs(summary.totalPnl))}`;
+        }
+    }
+    if (pnlPct && summary?.totalPnlPercent !== undefined) {
+        pnlPct.textContent = `(${parseFloat(summary.totalPnlPercent) >= 0 ? '+' : ''}${summary.totalPnlPercent}%)`;
+        pnlPct.className = `text-xs ml-2 ${parseFloat(summary.totalPnl) >= 0 ? 'text-[#00d06c]' : 'text-[#f6465d]'}`;
+    }
+    
+    const list = document.getElementById('asset-list');
+    if (!list) return;
+    if (!assets?.length) { list.innerHTML = '<div class="text-xs text-gray-500 text-center py-4">Belum ada aset crypto</div>'; return; }
+    
+    list.innerHTML = assets.map(a => {
+        const icon = MARKET_ASSET_ICONS[a.symbol] || { class: 'default', symbol: a.symbol.charAt(0) };
+        const pnlClass = a.isProfit ? 'profit' : 'loss';
+        const pnlSign = a.isProfit ? '+' : '-';
+        return `<div class="portfolio-item"><div class="flex items-center gap-3"><div class="asset-icon ${icon.class}">${icon.symbol}</div><div><div class="text-sm font-medium text-white">${a.symbol}</div><div class="text-xs text-gray-500">${parseFloat(a.quantity).toFixed(4)} ${a.symbol}</div></div></div><div class="text-right"><div class="text-sm font-semibold text-white">${fmtIDR(a.totalValue)}</div><div class="pnl-badge ${pnlClass}">${pnlSign}${fmtIDR(Math.abs(a.pnl))} (${pnlSign}${a.pnlPercent}%)</div></div></div>`;
+    }).join('');
+}
+
+async function refreshPortfolio() { showToast('Memperbarui...', 'pending'); await fetchPortfolio(); showToast('Data diperbarui', 'success'); }
+
+// ==========================================
+// P&L CHART
+// ==========================================
+async function fetchPnLChart() {
+    const address = window.userAddress;
+    if (!address) return;
+    try {
+        const data = generateMockPnL();
+        renderPnLChart(data);
+    } catch (e) { console.error('P&L chart error:', e); }
+}
+
+function generateMockPnL() {
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const pnl = (Math.random() - 0.3) * 2000000;
+        months.push({ label: d.toLocaleString('id-ID', { month: 'short' }), value: Math.round(pnl), isProfit: pnl >= 0 });
+    }
+    return months;
+}
+
+function renderPnLChart(data) {
+    const el = document.getElementById('pnl-chart');
+    if (!el) return;
+    if (!data?.length) { el.innerHTML = '<div class="text-[10px] text-gray-500 text-center">Belum ada data</div>'; return; }
+    const max = Math.max(...data.map(d => Math.abs(d.value)), 1);
+    el.innerHTML = data.map(d => {
+        const h = (Math.abs(d.value) / max) * 100;
+        const cls = d.isProfit ? 'profit' : 'loss';
+        const val = fmtIDR(Math.abs(d.value));
+        return `<div class="pnl-bar ${cls}" style="height:${Math.max(h, 5)}%" data-month="${d.label}" data-tooltip="${d.isProfit ? '+' : '-'}${val}"></div>`;
+    }).join('');
+}
+
+// ==========================================
+// UTILS
+// ==========================================
+function fmtIDR(n) {
+    const num = parseFloat(n);
+    if (isNaN(num) || num === null || num === undefined) return 'Rp 0';
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+}
+
+function getAssetIconClass(symbol) { return MARKET_ASSET_ICONS[symbol]?.class || 'default'; }
+function getAssetIconSymbol(symbol) { return MARKET_ASSET_ICONS[symbol]?.symbol || symbol.charAt(0); }
+
+function goToTrading(sym) {
+    console.log(`🎯 Navigating to trading: ${sym}`);
+    if (typeof window.navigate === 'function') { window.navigate('trading', { symbol: sym }); }
+    else { const url = new URL(window.location); url.searchParams.set('symbol', sym); window.history.pushState({ route: 'trading', symbol: sym }, '', url); window.location.reload(); }
+}
+
+function setupSearch() {
+    const inp = document.getElementById('search-input');
+    if (!inp) return;
+    let timeout;
+    inp.addEventListener('input', e => { clearTimeout(timeout); timeout = setTimeout(() => filterTable(e.target.value.toLowerCase()), 150); });
+}
+
+function filterTable(term) {
+    const rows = document.querySelectorAll('#market-body tr');
+    let visible = 0;
+    rows.forEach(r => { const match = r.textContent.toLowerCase().includes(term); r.style.display = match ? '' : 'none'; if (match && r.querySelector('td')) visible++; });
+    if (visible === 0 && term) { const tbody = document.getElementById('market-body'); if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-gray-500">Tidak ditemukan "${term}"</td></tr>`; }
+}
+
+function showToast(msg, type = 'success') {
+    document.querySelectorAll('.wallet-toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = `wallet-toast fixed top-5 right-5 px-4 py-3 rounded-lg shadow-lg z-50 text-sm font-medium ${type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-yellow-600'} text-white flex items-center gap-2`;
+    const icon = type === 'success' ? '<i class="bi bi-check-circle"></i>' : type === 'error' ? '<i class="bi bi-x-circle"></i>' : '<i class="bi bi-info-circle"></i>';
+    toast.innerHTML = `${icon} <span>${msg}</span> <button onclick="this.parentElement.remove()" class="ml-2 hover:opacity-75"><i class="bi bi-x"></i></button>`;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 3000);
+}
+
+// ==========================================
+// EXPOSE & INIT
+// ==========================================
+window.initMarket = initMarket;
+window.refreshPortfolio = refreshPortfolio;
+window.fetchMarketData = fetchMarketData;
+
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initMarket); } else { initMarket(); }
+
+window.addEventListener('beforeunload', () => {
+    if (refreshInterval) clearInterval(refreshInterval);
+    sparklineCharts.forEach(c => { try { c.chart?.destroy(); } catch(e) {} });
+    sparklineCharts = [];
+    console.log('🧹 Market partial cleaned up');
+});
+</script>

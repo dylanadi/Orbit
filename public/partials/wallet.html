@@ -1,0 +1,771 @@
+<!-- public/partials/wallet.html -->
+<!-- ⚠️ PARTIAL ONLY: Tidak ada <html>, <head>, <body> -->
+
+<!-- CSS Inline untuk Wallet Page -->
+<style>
+    .payment-method-card { cursor: pointer; transition: all 0.2s; border: 2px solid transparent; }
+    .payment-method-card:hover { border-color: #00d06c; transform: translateY(-2px); }
+    .payment-method-card.selected { border-color: #00d06c; background: rgba(0,208,108,0.1); }
+    .balance-card { background: linear-gradient(135deg, #1a1d23 0%, #0f1115 100%); }
+    
+    /* Loading Overlay */
+    #wallet-loading-overlay {
+        position: fixed; inset: 0; background: rgba(6, 7, 9, 0.95);
+        display: none; align-items: center; justify-content: center;
+        z-index: 9999; backdrop-filter: blur(8px);
+    }
+    #wallet-loading-overlay.active { display: flex; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .spinner {
+        width: 64px; height: 64px; border: 4px solid #2b3139;
+        border-top-color: #00d06c; border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    /* Scrollable History */
+    #deposit-history-list { max-height: 420px; overflow-y: auto; padding-right: 4px; }
+    #deposit-history-list::-webkit-scrollbar { width: 6px; }
+    #deposit-history-list::-webkit-scrollbar-track { background: #0b0e11; border-radius: 4px; }
+    #deposit-history-list::-webkit-scrollbar-thumb { background: #2b3139; border-radius: 4px; }
+    
+    /* Toast Notification */
+    .wallet-toast {
+        position: fixed; top: 20px; right: 20px; padding: 16px 24px;
+        border-radius: 12px; background: #181a20; border: 1px solid #2b3139;
+        color: white; font-weight: 500; z-index: 10000;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        animation: slideIn 0.3s ease, fadeOut 0.3s ease 4.7s forwards;
+        display: flex; align-items: center; gap: 12px; max-width: 400px;
+    }
+    .wallet-toast.success { border-left: 4px solid #00d06c; }
+    .wallet-toast.pending { border-left: 4px solid #f59e0b; }
+    .wallet-toast.error { border-left: 4px solid #f6465d; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+    
+    /* Status Badge */
+    .status-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; border-radius: 20px;
+        font-size: 10px; font-weight: 500;
+    }
+    .status-badge.success { background: rgba(0,208,108,0.15); color: #00d06c; }
+    .status-badge.pending { background: rgba(245,158,11,0.15); color: #f59e0b; }
+    .status-badge.expired { background: rgba(100,116,139,0.15); color: #64748b; }
+    
+    /* Pending Payment Card */
+    .pending-payment-card {
+        background: linear-gradient(135deg, rgba(245,158,11,0.1) 0%, rgba(245,158,11,0.05) 100%);
+        border: 1px solid #f59e0b; border-radius: 12px; padding: 16px;
+        margin-bottom: 24px; animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.9; } }
+    .pending-payment-card.expired {
+        background: linear-gradient(135deg, rgba(100,116,139,0.1) 0%, rgba(100,116,139,0.05) 100%);
+        border-color: #64748b; animation: none;
+    }
+</style>
+
+<!-- Loading Overlay -->
+<div id="wallet-loading-overlay">
+    <div class="text-center max-w-sm mx-auto px-4">
+        <div class="spinner mx-auto mb-6"></div>
+        <div class="text-white text-lg font-semibold mb-2" id="loading-title">Memproses Deposit...</div>
+        <div class="text-gray-400 text-sm mb-4" id="loading-desc">Menunggu konfirmasi blockchain</div>
+        <div class="flex items-center justify-center gap-2 text-[10px] text-gray-600">
+            <i class="bi bi-shield-check"></i>
+            <span>Transaksi diamankan oleh Ethereum Sepolia</span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Wallet Content -->
+<div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Header -->
+    <header class="h-20 shrink-0 flex items-center justify-between px-8">
+        <div>
+            <h2 class="text-2xl font-bold text-white">Wallet</h2>
+            <p class="text-sm text-gray-400 mt-1">Tambahkan dana ke akun anda, dan mulailah trading.</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="text-right">
+                <div class="font-semibold text-sm text-white">MetaMask</div>
+                <div id="wallet-status" class="text-[10px] text-gray-500">Not Connected</div>
+            </div>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8" alt="MetaMask" />
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto px-8 py-6">
+        <div class="grid grid-cols-12 gap-6">
+            
+            <!-- LEFT: Deposit Form -->
+            <div class="col-span-8 space-y-6">
+                
+                <!-- ⚠️ PENDING PAYMENT CARD (Ditampilkan jika ada order tertunda) -->
+                <div id="pending-payment-card" class="pending-payment-card hidden">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                <i class="bi bi-hourglass-split text-yellow-500"></i>
+                            </div>
+                            <div>
+                                <div class="text-sm font-semibold text-white">Pembayaran Tertunda</div>
+                                <div class="text-xs text-gray-400" id="pending-order-info">
+                                    Menyelesaikan deposit Rp 0...
+                                </div>
+                                <div class="text-[10px] text-gray-500 mt-1" id="pending-order-time">
+                                    Dibuat: -
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            <button id="btn-resume-payment" class="px-4 py-2 bg-[#00d06c] hover:bg-[#00e676] text-black text-sm font-semibold rounded-lg transition flex items-center gap-1">
+                                <i class="bi bi-arrow-repeat"></i> Lanjutkan
+                            </button>
+                            <button id="btn-cancel-payment" class="text-[10px] text-gray-500 hover:text-red-500 transition">
+                                Batal
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Balance Cards (IDR) -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="balance-card p-4 rounded-xl border border-[#1f2329]">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                                <i class="bi bi-wallet2 text-green-500"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400">Total Saldo</div>
+                                <div id="total-balance" class="text-lg font-bold text-white">Rp 0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="balance-card p-4 rounded-xl border border-[#1f2329]">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                <i class="bi bi-check-circle text-blue-500"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400">Saldo Tersedia</div>
+                                <div id="available-balance" class="text-lg font-bold text-white">Rp 0</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="balance-card p-4 rounded-xl border border-[#1f2329]">
+                        <div class="flex items-center gap-3 mb-2">
+                            <div class="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                                <i class="bi bi-hourglass-split text-orange-500"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-400">Saldo Pending</div>
+                                <div id="pending-balance" class="text-lg font-bold text-white">Rp 0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Deposit Form (IDR) -->
+                <div class="panel p-6">
+                    <div class="mb-6">
+                        <h3 class="text-sm font-semibold text-white mb-1">1. Masukkan Nominal</h3>
+                        <p class="text-xs text-gray-500">Minimum deposit Rp 10.000</p>
+                    </div>
+                    
+                    <div class="flex gap-2 mb-6">
+                        <div class="flex-1 relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-400">Rp</span>
+                            <input type="number" id="deposit-amount" placeholder="0" 
+                                   class="w-full bg-[#0b0e11] border border-[#2b3139] rounded-lg pl-12 pr-4 py-4 text-white text-lg focus:outline-none focus:border-[#00d06c] transition" />
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <img src="https://flagcdn.com/w40/id.png" class="w-8 h-6 rounded" alt="IDR" />
+                            <span class="text-white font-medium">IDR</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-sm font-semibold text-white mb-4">2. Pilih Metode Pembayaran</h3>
+                        <div class="grid grid-cols-4 gap-4">
+                            <div class="payment-method-card p-4 rounded-xl bg-[#0b0e11] border border-[#2b3139] text-center" onclick="selectPaymentMethod(this, 'bank_transfer')">
+                                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                    <i class="bi bi-bank text-blue-500 text-xl"></i>
+                                </div>
+                                <div class="text-sm font-medium text-white mb-1">Transfer Bank</div>
+                                <div class="text-xs text-gray-500">BCA, Mandiri, BNI, BRI</div>
+                            </div>
+                            <div class="payment-method-card p-4 rounded-xl bg-[#0b0e11] border border-[#2b3139] text-center" onclick="selectPaymentMethod(this, 'gopay')">
+                                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-orange-500/20 flex items-center justify-center">
+                                    <i class="bi bi-wallet text-orange-500 text-xl"></i>
+                                </div>
+                                <div class="text-sm font-medium text-white mb-1">E-Wallet</div>
+                                <div class="text-xs text-gray-500">GoPay, OVO, DANA</div>
+                            </div>
+                            <div class="payment-method-card p-4 rounded-xl bg-[#0b0e11] border border-[#2b3139] text-center" onclick="selectPaymentMethod(this, 'qris')">
+                                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-red-500/20 flex items-center justify-center">
+                                    <i class="bi bi-qr-code text-red-500 text-xl"></i>
+                                </div>
+                                <div class="text-sm font-medium text-white mb-1">QRIS</div>
+                                <div class="text-xs text-gray-500">Scan QR code</div>
+                            </div>
+                            <div class="payment-method-card p-4 rounded-xl bg-[#0b0e11] border border-[#2b3139] text-center" onclick="selectPaymentMethod(this, 'crypto')">
+                                <div class="w-12 h-12 mx-auto mb-2 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                    <i class="bi bi-currency-bitcoin text-yellow-500 text-xl"></i>
+                                </div>
+                                <div class="text-sm font-medium text-white mb-1">Crypto</div>
+                                <div class="text-xs text-gray-500">ETH, USDT</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="processDeposit()" class="w-full bg-[#00d06c] hover:bg-[#00e676] text-black font-bold py-4 rounded-xl transition active:scale-95 flex items-center justify-center gap-2">
+                        <i class="bi bi-cash-stack"></i>
+                        <span>Deposit Sekarang</span>
+                    </button>
+                    
+                    <p class="text-[10px] text-gray-600 text-center mt-3 flex items-center justify-center gap-1">
+                        <i class="bi bi-shield-lock"></i>
+                        <span>Transaksi diamankan oleh blockchain Ethereum Sepolia</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- RIGHT: Deposit History (Scrollable) -->
+            <div class="col-span-4">
+                <div class="panel p-6 h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-white">Riwayat Deposit</h3>
+                        <button onclick="fetchDepositHistory()" class="text-xs text-[#00d06c] hover:underline flex items-center gap-1">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh
+                        </button>
+                    </div>
+                    
+                    <!-- Scrollable History List -->
+                    <div id="deposit-history-list" class="space-y-3 flex-1">
+                        <div class="text-sm text-gray-500 text-center py-8">Memuat riwayat deposit...</div>
+                    </div>
+
+                    <!-- Clock Widget -->
+                    <div class="mt-4 p-4 rounded-xl bg-[#0b0e11] border border-[#2b3139]">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i class="bi bi-clock text-gray-400 text-xl"></i>
+                                <span id="current-time" class="text-2xl font-mono text-white">17:30</span>
+                            </div>
+                            <span class="text-sm text-gray-400">WIB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Wallet Logic Script -->
+<script id="wallet-script">
+// ==========================================
+// STATE & CONFIG
+// ==========================================
+let selectedPaymentMethod = null;
+let userAddress = null;
+let pollingInterval = null;
+const MIN_DEPOSIT_IDR = 10000;
+const POLLING_INTERVAL_MS = 3000;
+const ORDER_EXPIRY_HOURS = 24; // Midtrans order expires after 24 hours
+
+// ==========================================
+// LOCAL STORAGE UTILS FOR PENDING ORDERS
+// ==========================================
+const STORAGE_KEY = 'orbit_pending_deposit';
+
+function savePendingOrder(orderData) {
+    const data = {
+        ...orderData,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (ORDER_EXPIRY_HOURS * 60 * 60 * 1000)
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    console.log('💾 Pending order saved:', data.orderId);
+}
+
+function getPendingOrder() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        
+        // Check if expired
+        if (Date.now() > data.expiresAt) {
+            clearPendingOrder();
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+function clearPendingOrder() {
+    localStorage.removeItem(STORAGE_KEY);
+    console.log('🗑️ Pending order cleared');
+}
+
+function isOrderExpired(orderData) {
+    return Date.now() > orderData.expiresAt;
+}
+
+function formatTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'baru saja';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)} menit yang lalu`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)} jam yang lalu`;
+    return new Date(timestamp).toLocaleString('id-ID');
+}
+
+// ==========================================
+// AUTO-LOADER SNAP.JS (Safety Net)
+// ==========================================
+async function ensureSnapLoaded() {
+    if (typeof window.snap !== 'undefined') return true;
+    return new Promise((resolve, reject) => {
+        console.log('🔄 Snap.js not found. Loading dynamically...');
+        const script = document.createElement('script');
+        // ⚠️ GANTI DENGAN CLIENT KEY SANDBOX ASLI KAMU
+        script.src = 'https://app.sandbox.midtrans.com/snap/snap.js';
+        script.setAttribute('data-client-key', 'SB-Mid-client-xxx-ganti-dengan-key-kamu');
+        script.type = 'text/javascript';
+        script.onload = () => { console.log('✅ Snap.js loaded dynamically'); resolve(true); };
+        script.onerror = () => reject(new Error('Gagal memuat Midtrans Snap.js'));
+        document.head.appendChild(script);
+    });
+}
+
+// ==========================================
+// INIT WALLET PAGE
+// ==========================================
+function initWallet() {
+    console.log('🔧 Initializing wallet page...');
+    checkWalletConnection();
+    updateClock();
+    setInterval(updateClock, 1000);
+    
+    window.addEventListener('wallet:statusChanged', (e) => {
+        if (e.detail.connected) {
+            userAddress = e.detail.address;
+            fetchBalance();
+            fetchDepositHistory();
+            checkPendingOrder(); // ✅ Check for pending order when wallet connects
+        }
+    });
+    
+    handlePaymentCallback();
+    
+    // Setup event listeners for pending payment card
+    setupPendingPaymentListeners();
+    
+    console.log('✅ Wallet page ready');
+}
+
+function setupPendingPaymentListeners() {
+    const btnResume = document.getElementById('btn-resume-payment');
+    const btnCancel = document.getElementById('btn-cancel-payment');
+    
+    if (btnResume) {
+        btnResume.onclick = async () => {
+            const pending = getPendingOrder();
+            if (pending && pending.token) {
+                console.log('🔄 Resuming payment for order:', pending.orderId);
+                await resumePayment(pending);
+            }
+        };
+    }
+    if (btnCancel) {
+        btnCancel.onclick = () => {
+            clearPendingOrder();
+            hidePendingPaymentCard();
+            showToast('Pembayaran dibatalkan', 'error');
+        };
+    }
+}
+
+function checkWalletConnection() {
+    if (window.userAddress) {
+        userAddress = window.userAddress;
+        updateWalletStatus(true);
+        fetchBalance();
+        fetchDepositHistory();
+        checkPendingOrder();
+    } else {
+        updateWalletStatus(false);
+    }
+}
+
+function updateWalletStatus(connected) {
+    const status = document.getElementById('wallet-status');
+    if (!status) return;
+    if (connected && userAddress) {
+        const short = `${userAddress.slice(0, 8)}...${userAddress.slice(-6)}`;
+        status.innerHTML = `<i class="bi bi-patch-check-fill text-[#00d06c]"></i> ${short}`;
+        status.className = 'text-[10px] text-[#00d06c] font-medium';
+    } else {
+        status.textContent = 'Not Connected';
+        status.className = 'text-[10px] text-gray-500';
+    }
+}
+
+function selectPaymentMethod(el, method) {
+    document.querySelectorAll('.payment-method-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPaymentMethod = method;
+}
+
+// ==========================================
+// PENDING PAYMENT UI FUNCTIONS
+// ==========================================
+function showPendingPaymentCard(orderData) {
+    const card = document.getElementById('pending-payment-card');
+    const info = document.getElementById('pending-order-info');
+    const time = document.getElementById('pending-order-time');
+    const btnResume = document.getElementById('btn-resume-payment');
+    
+    if (!card) return;
+    
+    const amount = formatIDR(orderData.amount);
+    const method = orderData.paymentMethod.replace('_', ' ').toUpperCase();
+    const timeAgo = formatTimeAgo(orderData.createdAt);
+    const isExpired = isOrderExpired(orderData);
+    
+    info.innerHTML = `Menyelesaikan deposit <strong>${amount}</strong> via ${method}`;
+    time.textContent = `Dibuat: ${timeAgo}`;
+    
+    if (isExpired) {
+        card.classList.add('expired');
+        info.innerHTML += `<div class="text-[10px] text-red-500 mt-1">⚠️ Order telah kadaluarsa</div>`;
+        if (btnResume) {
+            btnResume.disabled = true;
+            btnResume.innerHTML = '<i class="bi bi-x-circle"></i> Kadaluarsa';
+            btnResume.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    } else {
+        card.classList.remove('expired');
+        if (btnResume) {
+            btnResume.disabled = false;
+            btnResume.innerHTML = '<i class="bi bi-arrow-repeat"></i> Lanjutkan';
+            btnResume.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+    
+    card.classList.remove('hidden');
+}
+
+function hidePendingPaymentCard() {
+    const card = document.getElementById('pending-payment-card');
+    if (card) card.classList.add('hidden');
+}
+
+async function checkPendingOrder() {
+    if (!userAddress) return;
+    
+    const pending = getPendingOrder();
+    if (pending && pending.userAddress === userAddress) {
+        console.log('📋 Found pending order:', pending.orderId);
+        showPendingPaymentCard(pending);
+    } else {
+        hidePendingPaymentCard();
+    }
+}
+
+async function resumePayment(orderData) {
+    try {
+        showLoading(true, 'Melanjutkan Pembayaran...', 'Membuka Midtrans');
+        
+        // Ensure Snap.js is loaded
+        await ensureSnapLoaded();
+        
+        // Re-open Midtrans modal with existing token
+        window.snap.pay(orderData.token, {
+            onSuccess: async function(result) {
+                console.log('✅ Payment success (resumed):', result);
+                updateLoadingState('Menunggu Konfirmasi Blockchain...', 'Transaksi sedang diproses di jaringan Ethereum');
+                startBalancePolling(await getCurrentBalance(), orderData.orderId);
+            },
+            onPending: function(result) {
+                console.log('⏳ Payment still pending:', result);
+                showLoading(false);
+                showToast('Menunggu konfirmasi pembayaran', 'pending');
+            },
+            onError: function(result) {
+                console.log('❌ Payment error:', result);
+                showLoading(false);
+                showToast('Pembayaran gagal. Silakan coba lagi', 'error');
+            },
+            onClose: function() {
+                console.log('🔒 Modal closed (resumed)');
+                showLoading(false);
+            }
+        });
+        
+    } catch (err) {
+        console.error('❌ Resume payment error:', err);
+        showLoading(false);
+        showToast(err.message, 'error');
+    }
+}
+
+// ==========================================
+// PROCESS DEPOSIT - MAIN FLOW
+// ==========================================
+async function processDeposit() {
+    if (!userAddress) { showToast('Connect wallet terlebih dahulu', 'error'); return; }
+    
+    const amountInput = document.getElementById('deposit-amount');
+    const amount = parseFloat(amountInput.value);
+    
+    if (!amount || amount < MIN_DEPOSIT_IDR) {
+        showToast(`Minimum deposit ${formatIDR(MIN_DEPOSIT_IDR)}`, 'error');
+        return;
+    }
+    if (!selectedPaymentMethod) { showToast('Pilih metode pembayaran', 'error'); return; }
+    
+    try {
+        showLoading(true, 'Memproses Pembayaran...', 'Menghubungkan ke Midtrans');
+        
+        // Step 1: Get payment token from backend
+        const res = await fetch('/api/wallet/create-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount, paymentMethod: selectedPaymentMethod, userAddress })
+        });
+        const data = await res.json();
+        
+        if (!res.ok || !data.success || !data.token) {
+            throw new Error(data.details || 'Gagal membuat pembayaran');
+        }
+        
+        // Step 2: Save to localStorage for resume capability
+        const orderData = {
+            orderId: data.orderId,
+            token: data.token,
+            amount: amount,
+            paymentMethod: selectedPaymentMethod,
+            userAddress: userAddress
+        };
+        savePendingOrder(orderData);
+        
+        // Step 3: Ensure Snap.js loaded
+        await ensureSnapLoaded();
+        
+        // Step 4: Open Midtrans modal
+        window.snap.pay(data.token, {
+            onSuccess: async function(result) {
+                console.log('✅ Payment success:', result);
+                updateLoadingState('Menunggu Konfirmasi Blockchain...', 'Transaksi sedang diproses di jaringan Ethereum');
+                startBalancePolling(await getCurrentBalance(), data.orderId);
+            },
+            onPending: function(result) {
+                console.log('⏳ Payment pending:', result);
+                showLoading(false);
+                showToast('Menunggu konfirmasi pembayaran', 'pending');
+                // Order remains in localStorage for resume
+            },
+            onError: function(result) {
+                console.log('❌ Payment error:', result);
+                showLoading(false);
+                showToast('Pembayaran gagal. Silakan coba lagi', 'error');
+                // Order remains in localStorage for resume
+            },
+            onClose: function() {
+                console.log('🔒 Modal closed');
+                showLoading(false);
+                // Order remains in localStorage for resume
+                checkPendingOrder(); // Show pending card if user returns
+            }
+        });
+        
+    } catch (err) {
+        console.error('❌ Deposit error:', err);
+        showLoading(false);
+        showToast(err.message, 'error');
+    }
+}
+
+// ==========================================
+// BALANCE POLLING FOR BLOCKCHAIN CONFIRMATION
+// ==========================================
+async function getCurrentBalance() {
+    if (!userAddress) return 0;
+    try {
+        const res = await fetch(`/api/wallet/balance/${userAddress}`);
+        const data = await res.json();
+        return data.success ? parseFloat(data.balanceIDR) : 0;
+    } catch { return 0; }
+}
+
+function startBalancePolling(initialBalance, orderId) {
+    if (pollingInterval) clearInterval(pollingInterval);
+    
+    pollingInterval = setInterval(async () => {
+        try {
+            const currentBalance = await getCurrentBalance();
+            if (currentBalance > initialBalance) {
+                console.log('✅ Balance updated - blockchain confirmed!');
+                stopBalancePolling();
+                clearPendingOrder(); // ✅ Clear pending order after success
+                await fetchBalance();
+                await fetchDepositHistory();
+                showLoading(false);
+                showToast('Deposit berhasil dikonfirmasi blockchain', 'success');
+            }
+        } catch (err) { console.error('❌ Polling error:', err); }
+    }, POLLING_INTERVAL_MS);
+    
+    // Safety timeout: stop after 5 minutes
+    setTimeout(() => {
+        if (pollingInterval) {
+            stopBalancePolling();
+            showLoading(false);
+            showToast('Konfirmasi blockchain memakan waktu lebih lama. Silakan refresh halaman.', 'pending');
+        }
+    }, 5 * 60 * 1000);
+}
+
+function stopBalancePolling() {
+    if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+}
+
+// ==========================================
+// FETCH DATA FROM BACKEND
+// ==========================================
+async function fetchBalance() {
+    if (!userAddress) return;
+    try {
+        const res = await fetch(`/api/wallet/balance/${userAddress}`);
+        const data = await res.json();
+        if (data.success) {
+            const balanceValue = parseFloat(data.balanceIDR);
+            if (!isNaN(balanceValue) && balanceValue >= 0) {
+                const formatted = formatIDR(balanceValue);
+                document.getElementById('total-balance').textContent = formatted;
+                document.getElementById('available-balance').textContent = formatted;
+                console.log('✅ Balance updated:', formatted);
+            } else {
+                document.getElementById('total-balance').textContent = 'Rp 0';
+                document.getElementById('available-balance').textContent = 'Rp 0';
+            }
+        }
+    } catch (err) { console.error('❌ Fetch balance error:', err); }
+}
+
+async function fetchDepositHistory() {
+    if (!userAddress) return;
+    const container = document.getElementById('deposit-history-list');
+    if (!container) return;
+    container.innerHTML = '<div class="text-sm text-gray-500 text-center py-4">Memuat...</div>';
+    
+    try {
+        const res = await fetch(`/api/wallet/deposits/${userAddress}`);
+        const data = await res.json();
+        if (data.success && data.deposits && data.deposits.length > 0) {
+            container.innerHTML = data.deposits.map(dep => {
+                const amountValue = parseFloat(dep.amount);
+                const formattedAmount = formatIDR(isNaN(amountValue) ? 0 : amountValue);
+                const date = new Date(dep.timestamp).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const statusConfig = {
+                    'success': { icon: 'bi-check-circle-fill', text: 'Selesai', class: 'success' },
+                    'pending': { icon: 'bi-hourglass-split', text: 'Pending', class: 'pending' },
+                    'failed': { icon: 'bi-x-circle-fill', text: 'Gagal', class: 'error' }
+                }[dep.status] || { icon: 'bi-clock', text: 'Proses', class: 'pending' };
+                const methodIcon = { 'bank_transfer': 'bi-bank', 'gopay': 'bi-wallet', 'qris': 'bi-qr-code', 'crypto': 'bi-currency-bitcoin' }[dep.method] || 'bi-credit-card';
+                return `<div class="flex items-center justify-between p-3 rounded-lg bg-[#0b0e11] border border-[#2b3139] hover:border-[#00d06c]/30 transition">
+                    <div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center"><i class="bi ${methodIcon} text-blue-500"></i></div>
+                    <div><div class="text-sm font-medium text-white capitalize">${dep.method.replace('_', ' ')}</div><div class="text-xs text-gray-500">${date}</div></div></div>
+                    <div class="text-right"><div class="text-sm font-medium text-[#00d06c]">+${formattedAmount}</div><span class="status-badge ${statusConfig.class}"><i class="bi ${statusConfig.icon}"></i>${statusConfig.text}</span></div></div>`;
+            }).join('');
+        } else {
+            container.innerHTML = `<div class="text-center py-8"><div class="text-4xl mb-2 text-gray-600"><i class="bi bi-wallet"></i></div><div class="text-sm text-gray-500">Belum ada deposit</div></div>`;
+        }
+    } catch (err) { console.error('❌ Fetch history error:', err); container.innerHTML = '<div class="text-sm text-red-500 text-center py-4">Gagal memuat riwayat</div>'; }
+}
+
+// ==========================================
+// UI UTILITIES
+// ==========================================
+function formatIDR(amount) {
+    const num = parseFloat(amount);
+    if (isNaN(num) || num === null || num === undefined) return 'Rp 0';
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(num);
+}
+
+function showLoading(show, title = 'Memproses...', desc = 'Mohon tunggu') {
+    const overlay = document.getElementById('wallet-loading-overlay');
+    const titleEl = document.getElementById('loading-title');
+    const descEl = document.getElementById('loading-desc');
+    if (overlay) {
+        if (titleEl) titleEl.textContent = title;
+        if (descEl) descEl.textContent = desc;
+        overlay.classList.toggle('active', show);
+        document.body.style.overflow = show ? 'hidden' : '';
+    }
+}
+
+function updateLoadingState(title, desc) {
+    const titleEl = document.getElementById('loading-title');
+    const descEl = document.getElementById('loading-desc');
+    if (titleEl) titleEl.textContent = title;
+    if (descEl) descEl.textContent = desc;
+}
+
+function showToast(message, type = 'success') {
+    document.querySelectorAll('.wallet-toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = `wallet-toast ${type}`;
+    const iconConfig = {
+        success: { icon: 'bi-check-circle-fill', color: 'text-green-500' },
+        pending: { icon: 'bi-hourglass-split', color: 'text-yellow-500' },
+        error: { icon: 'bi-x-circle-fill', color: 'text-red-500' }
+    }[type] || { icon: 'bi-info-circle', color: 'text-blue-500' };
+    toast.innerHTML = `<i class="bi ${iconConfig.icon} ${iconConfig.color} text-xl"></i><span>${message}</span><button onclick="this.parentElement.remove()" class="ml-2 text-gray-400 hover:text-white"><i class="bi bi-x-lg"></i></button>`;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
+}
+
+function updateClock() {
+    const el = document.getElementById('current-time');
+    if (el) el.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+function handlePaymentCallback() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('paymentSuccess') === 'true') {
+        showToast('Deposit berhasil. Menunggu konfirmasi blockchain...', 'pending');
+        setTimeout(() => { fetchBalance(); fetchDepositHistory(); }, 3000);
+    } else if (params.get('paymentError') === 'true') {
+        showToast('Pembayaran gagal. Silakan coba lagi', 'error');
+    }
+}
+
+// ==========================================
+// EXPOSE & INIT
+// ==========================================
+window.initWallet = initWallet;
+window.selectPaymentMethod = selectPaymentMethod;
+window.processDeposit = processDeposit;
+window.fetchBalance = fetchBalance;
+window.fetchDepositHistory = fetchDepositHistory;
+window.checkPendingOrder = checkPendingOrder;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWallet);
+} else {
+    initWallet();
+}
+
+window.addEventListener('beforeunload', () => {
+    stopBalancePolling();
+    showLoading(false);
+    document.body.style.overflow = '';
+});
+</script>

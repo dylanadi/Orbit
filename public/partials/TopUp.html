@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit - Top Up</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Cinzel+Decorative:wght@700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+  background:#161616;
+  color:#fff;
+  font-family:'Inter',sans-serif;
+  display:flex;
+  height:100vh;
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar{
+  width:175px;min-width:175px;
+  background:#111;
+  display:flex;flex-direction:column;
+  padding:32px 0 24px;
+  border-right:1px solid #252525;
+  height:100vh;
+  flex-shrink:0;
+}
+.logo{
+  padding:0 24px 48px;
+  font-size:26px;font-weight:900;
+  letter-spacing:2px;color:#fff;
+  font-family:'Cinzel Decorative',serif;
+  line-height:1;
+}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 24px;
+  font-size:13.5px;color:#555;
+  cursor:pointer;
+  border-left:3px solid transparent;
+  transition:all .15s;
+  position:relative;
+}
+.nav-item:hover{color:#aaa}
+.nav-item.active{color:#4ade80;border-left-color:#4ade80}
+.nav-item svg{width:17px;height:17px;flex-shrink:0}
+.nav-dot{
+  width:6px;height:6px;
+  background:#4ade80;border-radius:50%;
+  margin-left:auto;
+  display:none;
+  flex-shrink:0;
+}
+.nav-item.active .nav-dot{display:block;}
+.sidebar-footer{
+  margin-top:auto;padding:0 24px 8px;
+  font-size:12px;color:#555;
+  cursor:pointer;display:flex;align-items:center;gap:6px;
+}
+.sidebar-footer:hover{color:#888}
+
+/* ─── MAIN AREA (content + right panel) ─── */
+.content-wrap{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  height:100vh;
+  overflow:hidden;
+}
+
+/* ─── TOP BAR ─── */
+.top-bar{
+  display:flex;align-items:flex-start;justify-content:space-between;
+  padding:32px 40px 0 36px;
+  flex-shrink:0;
+}
+.page-header{}
+.page-title{font-size:32px;font-weight:700;margin-bottom:4px;letter-spacing:-.4px}
+.page-sub{font-size:13.5px;color:#555}
+.metamask-row{
+  display:flex;align-items:center;gap:10px;
+  flex-shrink:0;
+}
+.mm-info{text-align:right}
+.mm-title{font-size:12px;font-weight:700;color:#ccc;}
+.mm-sub{font-size:10px;color:#555;}
+.mm-fox{width:44px;height:44px;object-fit:contain;flex-shrink:0;}
+
+/* ─── BODY (main + right panel) ─── */
+.body-row{
+  flex:1;
+  display:flex;
+  min-height:0;
+  overflow:hidden;
+}
+
+/* ─── MAIN SCROLL ─── */
+.main{
+  flex:1;
+  overflow-y:auto;
+  padding:26px 36px 36px 36px;
+  background:#161616;
+  min-width:0;
+}
+
+/* ─── BALANCE CARDS ─── */
+.balance-row{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:14px;margin-bottom:20px;
+}
+.bal-card{
+  background:#1e1e1e;
+  border:1px solid #2a2a2a;
+  border-radius:14px;
+  padding:22px 22px;
+  display:flex;align-items:center;gap:16px;
+}
+.bal-icon{
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.bal-icon.g{background:#14532d}
+.bal-icon.b{background:#1e3a5f}
+.bal-icon.o{background:#7c2d12}
+.bal-label{font-size:12px;color:#666;margin-bottom:5px}
+.bal-amount{font-size:22px;font-weight:700}
+
+/* ─── SECTIONS ─── */
+.section-box{
+  background:#1e1e1e;
+  border:1px solid #2a2a2a;
+  border-radius:14px;
+  padding:26px 28px;
+  margin-bottom:18px;
+}
+.sec-title{font-size:15px;font-weight:600;margin-bottom:20px}
+
+/* ─── NOMINAL INPUT ─── */
+.nominal-wrap{
+  background:#161616;
+  border:1px solid #2e2e2e;
+  border-radius:10px;
+  display:flex;align-items:center;
+  overflow:visible;
+  position:relative;
+}
+.nominal-left{
+  flex:1;display:flex;align-items:center;
+  padding:16px 20px;gap:10px;
+}
+.rp-label{font-size:24px;font-weight:800;color:#fff;letter-spacing:-0.5px}
+.nominal-input{
+  background:none;border:none;outline:none;
+  font-size:24px;font-weight:800;
+  color:#555;font-family:'Inter',sans-serif;
+  width:100%;letter-spacing:-0.5px;
+}
+.nom-divider{width:1px;height:36px;background:#2e2e2e;flex-shrink:0}
+.currency-btn{
+  display:flex;align-items:center;gap:8px;
+  padding:16px 18px;
+  background:none;border:none;
+  color:#fff;font-size:14px;font-weight:600;
+  cursor:pointer;font-family:'Inter',sans-serif;
+  position:relative;
+}
+.currency-btn:hover{background:rgba(255,255,255,.04);border-radius:0 10px 10px 0}
+.flag-sq{
+  width:24px;height:24px;border-radius:50%;
+  overflow:hidden;display:flex;align-items:center;justify-content:center;
+  font-size:16px;line-height:1;flex-shrink:0;
+}
+.chevron-down{width:14px;height:14px;opacity:.7;}
+
+/* ─── DROPDOWN ─── */
+.curr-dropdown{
+  position:absolute;top:calc(100% + 6px);right:0;
+  background:#1e1e1e;
+  border:1px solid #333;
+  border-radius:12px;
+  width:210px;
+  z-index:999;
+  overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,0,0,.7);
+  display:none;
+}
+.curr-dropdown.open{display:block}
+.dd-item{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 16px;
+  cursor:pointer;transition:background .12s;
+}
+.dd-item:hover{background:rgba(255,255,255,.06)}
+.dd-item.sel{background:rgba(74,222,128,.08)}
+.dd-item .dd-name{font-size:13.5px;font-weight:500;flex:1}
+.dd-item .dd-sub{font-size:11.5px;color:#666}
+
+/* ─── PAYMENT GRID ─── */
+.pay-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  gap:14px;
+}
+.pay-card{
+  background:#161616;
+  border:1px solid #2a2a2a;
+  border-radius:12px;
+  padding:22px 16px 18px;
+  cursor:pointer;
+  transition:all .2s;
+  text-align:center;
+}
+.pay-card:hover{border-color:#3a3a3a;transform:translateY(-1px)}
+.pay-card.active{border-color:#4ade80;border-width:1.5px}
+.pay-icon-wrap{
+  width:58px;height:58px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 14px;
+}
+.ic-blue{background:linear-gradient(145deg,#2563eb,#1d4ed8)}
+.ic-orange{background:linear-gradient(145deg,#f97316,#ea580c)}
+.ic-red{background:linear-gradient(145deg,#dc2626,#b91c1c)}
+.ic-amber{background:linear-gradient(145deg,#f59e0b,#d97706)}
+.pay-name{font-size:13.5px;font-weight:700;margin-bottom:7px}
+.pay-desc{font-size:11.5px;color:#666;line-height:1.55}
+
+/* ─── RIGHT PANEL ─── */
+.right-panel{
+  width:310px;min-width:310px;
+  background:#111;
+  border-left:1px solid #252525;
+  padding:20px 20px 20px;
+  overflow-y:auto;
+  height:100%;
+  flex-shrink:0;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+}
+
+/* green char widget */
+.green-char-row{
+  display:flex;justify-content:flex-end;
+  margin-bottom:18px;
+}
+.green-char-box{
+  width:66px;height:54px;
+  background:#22c55e;
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  gap:8px;
+  flex-shrink:0;
+}
+.eye-box{
+  width:13px;height:13px;
+  background:#fff;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;
+}
+.pupil{
+  width:5px;height:5px;
+  background:#111;border-radius:50%;
+  position:absolute;
+  transition:transform .04s linear;
+  pointer-events:none;
+}
+
+/* history */
+.hist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.hist-title{font-size:15px;font-weight:700}
+.view-all{font-size:12px;color:#555;cursor:pointer}
+.view-all:hover{color:#aaa}
+.hist-item{
+  display:flex;align-items:center;gap:11px;
+  padding:10px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+}
+.hist-item:last-child{border-bottom:none}
+.hist-ico{
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.hi-blue{background:#1e3a5f}
+.hi-orange{background:#7c2d12}
+.hi-amber{background:#78350f}
+.hist-body{flex:1;min-width:0}
+.hist-name{font-size:12.5px;font-weight:600;}
+.hist-date{font-size:10px;color:#555;margin-top:2px;line-height:1.4}
+.hist-right{text-align:right;flex-shrink:0}
+.hist-amt{font-size:13px;font-weight:700;white-space:nowrap}
+.hist-amt.pos{color:#4ade80}
+.hist-amt.neg{color:#f87171}
+.hist-badge{
+  font-size:9.5px;font-weight:600;
+  padding:2px 8px;border-radius:20px;
+  display:inline-block;margin-top:3px;
+}
+.badge-done{background:#14532d;color:#4ade80}
+.badge-pend{background:#7c2d12;color:#fb923c}
+
+/* empty bottom box */
+.hist-empty-box{
+  flex:1;min-height:80px;
+  background:#161616;
+  border:1px solid #222;
+  border-radius:12px;
+  margin-top:16px;
+}
+
+/* ─── BIG GREEN BAR ─── */
+.green-bar{
+  width:52px;min-width:52px;
+  background:#22c55e;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding-top:24px;
+  height:100vh;
+  flex-shrink:0;
+}
+.big-eye{
+  width:26px;height:26px;
+  background:#fff;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;position:relative;
+}
+.big-pupil{
+  width:11px;height:11px;
+  background:#333;border-radius:3px;
+  position:absolute;
+  transition:transform .04s linear;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="logo">Orbit</div>
+
+  <div class="nav-item" onclick="setNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="3" y="3" width="7" height="7" rx="1.2"/>
+      <rect x="14" y="3" width="7" height="7" rx="1.2"/>
+      <rect x="3" y="14" width="7" height="7" rx="1.2"/>
+      <rect x="14" y="14" width="7" height="7" rx="1.2"/>
+    </svg>
+    Dashboard
+    <div class="nav-dot"></div>
+  </div>
+
+  <div class="nav-item active" onclick="setNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+      <polyline points="16 7 22 7 22 13"/>
+    </svg>
+    Market
+    <div class="nav-dot"></div>
+  </div>
+
+  <div class="nav-item" onclick="setNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="2" y="6" width="20" height="14" rx="2"/>
+      <path d="M2 10h20M16 14h2"/>
+    </svg>
+    Wallet
+    <div class="nav-dot"></div>
+  </div>
+
+  <div class="nav-item" onclick="setNav(this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="8" y1="13" x2="16" y2="13"/>
+      <line x1="8" y1="17" x2="13" y2="17"/>
+    </svg>
+    Tax Center
+    <div class="nav-dot"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+      <polyline points="15 3 21 3 21 9"/>
+      <line x1="10" y1="14" x2="21" y2="3"/>
+    </svg>
+    Terms of Use
+  </div>
+</aside>
+
+<!-- CONTENT WRAP -->
+<div class="content-wrap">
+
+  <!-- TOP BAR: title left, metamask right -->
+  <div class="top-bar">
+    <div class="page-header">
+      <h1 class="page-title">Top Up</h1>
+      <p class="page-sub">Tambahkan dana ke akun anda, dan mulailah trading.</p>
+    </div>
+    <div class="metamask-row">
+      <div class="mm-info">
+        <div class="mm-title">MetaMask</div>
+        <div class="mm-sub">Verified Wallet ✓</div>
+      </div>
+      <img class="mm-fox" src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iaXNvLTg4NTktMSI/Pgo8IS0tIEdlbmVyYXRvcjogQWRvYmUgSWxsdXN0cmF0b3IgMjkuNC4wLCBTVkcgRXhwb3J0IFBsdWctSW4gLiBTVkcgVmVyc2lvbjogOS4wMyBCdWlsZCAwKSAgLS0+CjxzdmcgdmVyc2lvbj0iMS4xIiBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgeD0iMHB4IiB5PSIwcHgiCgkgdmlld0JveD0iMCAwIDE0MiAxMzYuODc4IiBzdHlsZT0iZW5hYmxlLWJhY2tncm91bmQ6bmV3IDAgMCAxNDIgMTM2Ljg3ODsiIHhtbDpzcGFjZT0icHJlc2VydmUiPgo8cGF0aCBzdHlsZT0iZmlsbDojRkY1QzE2OyIgZD0iTTEzMi42ODIsMTMyLjE5MmwtMzAuNTgzLTkuMTA2bC0yMy4wNjMsMTMuNzg3bC0xNi4wOTItMC4wMDdsLTIzLjA3Ny0xMy43OGwtMzAuNTY5LDkuMTA2TDAsMTAwLjgwMQoJbDkuMjk5LTM0LjgzOUwwLDM2LjUwN0w5LjI5OSwwbDQ3Ljc2NiwyOC41MzhoMjcuODVMMTMyLjY4MiwwbDkuMjk5LDM2LjUwN2wtOS4yOTksMjkuNDU1bDkuMjk5LDM0LjgzOUwxMzIuNjgyLDEzMi4xOTIKCUwxMzIuNjgyLDEzMi4xOTJ6Ii8+CjxwYXRoIHN0eWxlPSJmaWxsOiNGRjVDMTY7IiBkPSJNOS4zMDUsMGw0Ny43NjcsMjguNTU4bC0xLjg5OSwxOS41OTlMOS4zMDUsMHogTTM5Ljg3NSwxMDAuODE0bDIxLjAxNywxNi4wMWwtMjEuMDE3LDYuMjYxCglDMzkuODc1LDEyMy4wODUsMzkuODc1LDEwMC44MTQsMzkuODc1LDEwMC44MTR6IE01OS4yMTIsNzQuMzQ1bC00LjAzOS0yNi4xNzRMMjkuMzE3LDY1Ljk3bC0wLjAxNC0wLjAwN3YwLjAxM2wwLjA4LDE4LjMyMQoJbDEwLjQ4NS05Ljk1MUw1OS4yMTIsNzQuMzQ1TDU5LjIxMiw3NC4zNDV6IE0xMzIuNjgyLDBMODQuOTE1LDI4LjU1OGwxLjg5MywxOS41OTlMMTMyLjY4MiwweiBNMTAyLjExMywxMDAuODE0bC0yMS4wMTgsMTYuMDEKCWwyMS4wMTgsNi4yNjFWMTAwLjgxNHogTTExMi42NzgsNjUuOTc1aDAuMDA3SDExMi42Nzh2LTAuMDEzbC0wLjAwNiwwLjAwN0w4Ni44MTUsNDguMTcxbC00LjAzOSwyNi4xNzRoMTkuMzM2bDEwLjQ5Miw5Ljk1CglDMTEyLjYwNCw4NC4yOTUsMTEyLjY3OCw2NS45NzUsMTEyLjY3OCw2NS45NzV6Ii8+CjxwYXRoIHN0eWxlPSJmaWxsOiNFMzQ4MDc7IiBkPSJNMzkuODY4LDEyMy4wODVsLTMwLjU2OSw5LjEwNkwwLDEwMC44MTRoMzkuODY4QzM5Ljg2OCwxMDAuODE0LDM5Ljg2OCwxMjMuMDg1LDM5Ljg2OCwxMjMuMDg1egoJIE01OS4yMDUsNzQuMzM4bDUuODM5LDM3Ljg0bC04LjA5My0yMS4wNEwyOS4zNyw4NC4yOTVsMTAuNDkxLTkuOTU2aDE5LjM0NEw1OS4yMDUsNzQuMzM4eiBNMTAyLjExMiwxMjMuMDg1bDMwLjU3LDkuMTA2CglsOS4yOTktMzEuMzc4aC0zOS44NjlDMTAyLjExMiwxMDAuODE0LDEwMi4xMTIsMTIzLjA4NSwxMDIuMTEyLDEyMy4wODV6IE04Mi43NzYsNzQuMzM4bC01LjgzOSwzNy44NGw4LjA5Mi0yMS4wNGwyNy41ODMtNi44NDMKCWwtMTAuNDk4LTkuOTU2SDgyLjc3NlY3NC4zMzh6Ii8+CjxwYXRoIHN0eWxlPSJmaWxsOiNGRjhENUQ7IiBkPSJNMCwxMDAuODAxbDkuMjk5LTM0LjgzOWgxOS45OTdsMC4wNzMsMTguMzI3bDI3LjU4NCw2Ljg0M2w4LjA5MiwyMS4wMzlsLTQuMTYsNC42MzNsLTIxLjAxNy0xNi4wMUgwCglWMTAwLjgwMXogTTE0MS45ODEsMTAwLjgwMWwtOS4yOTktMzQuODM5aC0xOS45OThsLTAuMDczLDE4LjMyN2wtMjcuNTgyLDYuODQzbC04LjA5MywyMS4wMzlsNC4xNTksNC42MzNsMjEuMDE4LTE2LjAxaDM5Ljg2OAoJVjEwMC44MDF6IE04NC45MTUsMjguNTM4aC0yNy44NWwtMS44OTEsMTkuNTk5bDkuODcyLDY0LjAxM2gxMS44OTFsOS44NzgtNjQuMDEzTDg0LjkxNSwyOC41Mzh6Ii8+CjxwYXRoIHN0eWxlPSJmaWxsOiM2NjE4MDA7IiBkPSJNOS4yOTksMEwwLDM2LjUwN2w5LjI5OSwyOS40NTVoMTkuOTk3bDI1Ljg3LTE3LjgwNEw5LjI5OSwweiBNNTMuNDI2LDgxLjkzOGgtOS4wNTlsLTQuOTMyLDQuODM1CglsMTcuNTI0LDQuMzQ0bC0zLjUzMy05LjE4NlY4MS45Mzh6IE0xMzIuNjgyLDBsOS4yOTksMzYuNTA3bC05LjI5OSwyOS40NTVoLTE5Ljk5OEw4Ni44MTUsNDguMTU4TDEzMi42ODIsMHogTTg4LjU2OCw4MS45MzhoOS4wNzIKCWw0LjkzMiw0Ljg0MWwtMTcuNTQ0LDQuMzUzbDMuNTQtOS4yMDFWODEuOTM4eiBNNzkuMDI5LDEyNC4zODVsMi4wNjctNy41NjdsLTQuMTYtNC42MzNoLTExLjlsLTQuMTU5LDQuNjMzbDIuMDY2LDcuNTY3Ii8+CjxwYXRoIHN0eWxlPSJmaWxsOiNDMEM0Q0Q7IiBkPSJNNzkuMDI5LDEyNC4zODR2MTIuNDk1SDYyLjk0NXYtMTIuNDk1TDc5LjAyOSwxMjQuMzg0TDc5LjAyOSwxMjQuMzg0eiIvPgo8cGF0aCBzdHlsZT0iZmlsbDojRTdFQkY2OyIgZD0iTTM5Ljg3NSwxMjMuMDcybDIzLjA4MywxMy44di0xMi40OTVsLTIuMDY3LTcuNTY2QzYwLjg5MSwxMTYuODExLDM5Ljg3NSwxMjMuMDcyLDM5Ljg3NSwxMjMuMDcyegoJIE0xMDIuMTEzLDEyMy4wNzJsLTIzLjA4NCwxMy44di0xMi40OTVsMi4wNjctNy41NjZDODEuMDk2LDExNi44MTEsMTAyLjExMywxMjMuMDcyLDEwMi4xMTMsMTIzLjA3MnoiLz4KPC9zdmc+Cg==" alt="MetaMask Fox">
+    </div>
+  </div>
+
+  <!-- BODY ROW -->
+  <div class="body-row">
+
+    <!-- MAIN SCROLL -->
+    <main class="main">
+
+      <!-- BALANCE -->
+      <div class="balance-row">
+        <div class="bal-card">
+          <div class="bal-icon g">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2">
+              <rect x="2" y="6" width="20" height="14" rx="2"/>
+              <path d="M2 10h20"/>
+            </svg>
+          </div>
+          <div>
+            <div class="bal-label">Total Balance</div>
+            <div class="bal-amount">$8,096.00</div>
+          </div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-icon b">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2.2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <div>
+            <div class="bal-label">Available Balance</div>
+            <div class="bal-amount">$7,540.20</div>
+          </div>
+        </div>
+        <div class="bal-card">
+          <div class="bal-icon o">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div>
+            <div class="bal-label">Pending Balance</div>
+            <div class="bal-amount">$556.00</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NOMINAL -->
+      <div class="section-box">
+        <div class="sec-title">1. Masukkan Nominal</div>
+        <div class="nominal-wrap">
+          <div class="nominal-left">
+            <span class="rp-label">Rp</span>
+            <input class="nominal-input" type="text" value="0" id="nomInput" oninput="fmtNum(this)">
+          </div>
+          <div class="nom-divider"></div>
+          <button class="currency-btn" id="currBtn" onclick="toggleDD(event)">
+            <div class="flag-sq" id="selFlag">🇺🇸</div>
+            <span id="selCode">USD</span>
+            <svg class="chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            <div class="curr-dropdown" id="currDD">
+              <div class="dd-item sel" onclick="pickCurr(event,'USD','🇺🇸')">
+                <span class="flag-sq">🇺🇸</span>
+                <span class="dd-name">USD</span>
+                <span class="dd-sub">US Dollar</span>
+              </div>
+              <div class="dd-item" onclick="pickCurr(event,'IDR','🇮🇩')">
+                <span class="flag-sq">🇮🇩</span>
+                <span class="dd-name">IDR</span>
+                <span class="dd-sub">Rupiah</span>
+              </div>
+              <div class="dd-item" onclick="pickCurr(event,'AED','🇦🇪')">
+                <span class="flag-sq">🇦🇪</span>
+                <span class="dd-name">AED</span>
+                <span class="dd-sub">UAE Dirham</span>
+              </div>
+              <div class="dd-item" onclick="pickCurr(event,'EUR','🇪🇺')">
+                <span class="flag-sq">🇪🇺</span>
+                <span class="dd-name">EUR</span>
+                <span class="dd-sub">Euro</span>
+              </div>
+              <div class="dd-item" onclick="pickCurr(event,'AUD','🇦🇺')">
+                <span class="flag-sq">🇦🇺</span>
+                <span class="dd-name">AUD</span>
+                <span class="dd-sub">Australian Dollar</span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- PAYMENT -->
+      <div class="section-box">
+        <div class="sec-title">2. Pilih Menu Pembayaran</div>
+        <div class="pay-grid">
+          <div class="pay-card active" onclick="pickPay(this)">
+            <div class="pay-icon-wrap ic-blue">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M2 11h20"/>
+              </svg>
+            </div>
+            <div class="pay-name">Bank Transfer</div>
+            <div class="pay-desc">Transfer mulai dari akun bank anda</div>
+          </div>
+          <div class="pay-card" onclick="pickPay(this)">
+            <div class="pay-icon-wrap ic-orange">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/>
+              </svg>
+            </div>
+            <div class="pay-name">E-Wallet</div>
+            <div class="pay-desc">Deposit via E-Wallet platform</div>
+          </div>
+          <div class="pay-card" onclick="pickPay(this)">
+            <div class="pay-icon-wrap ic-red">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <rect x="7" y="7" width="3" height="3"/>
+                <rect x="14" y="7" width="3" height="3"/>
+                <rect x="7" y="14" width="3" height="3"/>
+                <rect x="11" y="11" width="2" height="2"/>
+                <path d="M14 14h3v3h-3z" opacity=".5"/>
+              </svg>
+            </div>
+            <div class="pay-name">QRIS</div>
+            <div class="pay-desc">Scan QR code untuk kemudahan dalam membayar</div>
+          </div>
+          <div class="pay-card" onclick="pickPay(this)">
+            <div class="pay-icon-wrap ic-amber">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M9.5 8.5c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5c0 2.5-2.5 3-2.5 3M12 17v.5"/>
+              </svg>
+            </div>
+            <div class="pay-name">Crypto Payment</div>
+            <div class="pay-desc">Gunakan Crypto untuk transaksi pembayaran</div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+
+      <!-- Green char (eyes) top right -->
+      <div class="green-char-row">
+        <div class="green-char-box">
+          <div class="eye-box"><div class="pupil" id="ps1"></div></div>
+          <div class="eye-box"><div class="pupil" id="ps2"></div></div>
+        </div>
+      </div>
+
+      <div class="hist-header">
+        <div class="hist-title">Deposit History</div>
+        <div class="view-all">View All</div>
+      </div>
+
+      <div class="hist-item">
+        <div class="hist-ico hi-blue">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M2 11h20"/></svg>
+        </div>
+        <div class="hist-body">
+          <div class="hist-name">Bank Transfer (BCA)</div>
+          <div class="hist-date">May 17, 2026 09:21 AM</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-amt pos">+ $465.00</div>
+          <span class="hist-badge badge-done">Completed</span>
+        </div>
+      </div>
+
+      <div class="hist-item">
+        <div class="hist-ico hi-orange">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/></svg>
+        </div>
+        <div class="hist-body">
+          <div class="hist-name">E-Wallet (PayPal)</div>
+          <div class="hist-date">May 13, 2026 01:21 PM</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-amt pos">+ $30.00</div>
+          <span class="hist-badge badge-done">Completed</span>
+        </div>
+      </div>
+
+      <div class="hist-item">
+        <div class="hist-ico hi-amber">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9.5 8c0-1.4 1.1-2.5 2.5-2.5s2.5 1.1 2.5 2.5c0 2-2.5 2.5-2.5 2.5M12 16v.5"/></svg>
+        </div>
+        <div class="hist-body">
+          <div class="hist-name">Crypto Payment (USDT)</div>
+          <div class="hist-date">May 12, 2026 10:02 AM</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-amt pos">+ $129.00</div>
+          <span class="hist-badge badge-done">Completed</span>
+        </div>
+      </div>
+
+      <div class="hist-item">
+        <div class="hist-ico hi-blue">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M2 11h20"/></svg>
+        </div>
+        <div class="hist-body">
+          <div class="hist-name">Bank Transfer (BCA)</div>
+          <div class="hist-date">May 02, 2026 08:20 AM</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-amt neg">- $212.00</div>
+          <span class="hist-badge badge-done">Completed</span>
+        </div>
+      </div>
+
+      <div class="hist-item">
+        <div class="hist-ico hi-blue">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M2 11h20"/></svg>
+        </div>
+        <div class="hist-body">
+          <div class="hist-name">Bank Transfer (Mandiri)</div>
+          <div class="hist-date">April 23, 2026 07:12 AM</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-amt neg">- $78.00</div>
+          <span class="hist-badge badge-pend">Pending</span>
+        </div>
+      </div>
+
+      <div class="hist-item">
+        <div class="hist-ico hi-orange">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3"/></svg>
+        </div>
+        <div class="hist-body">
+          <div class="hist-name">E-Wallet (DANA)</div>
+          <div class="hist-date">April 11, 2026 09:22 AM</div>
+        </div>
+        <div class="hist-right">
+          <div class="hist-amt pos">+ $777.00</div>
+          <span class="hist-badge badge-done">Completed</span>
+        </div>
+      </div>
+
+      <!-- empty box at bottom (visible in Figma) -->
+      <div class="hist-empty-box"></div>
+
+    </aside>
+
+  </div><!-- /body-row -->
+</div><!-- /content-wrap -->
+
+<!-- BIG GREEN BAR (rightmost) -->
+<div class="green-bar" id="greenBar">
+  <div class="big-eye"><div class="big-pupil" id="pb1"></div></div>
+</div>
+
+<script>
+// ─── EYE TRACKING ───────────────────────────────────
+document.addEventListener('mousemove', function(e){
+  var mx = e.clientX, my = e.clientY;
+  [['pb1',5],['ps1',4],['ps2',4]].forEach(function(pair){
+    var id=pair[0], maxR=pair[1];
+    var el = document.getElementById(id);
+    if(!el) return;
+    var socket = el.parentElement;
+    var r = socket.getBoundingClientRect();
+    var cx = r.left + r.width/2;
+    var cy = r.top + r.height/2;
+    var ang = Math.atan2(my - cy, mx - cx);
+    var dist = Math.min(maxR, Math.hypot(mx-cx, my-cy) * 0.35);
+    el.style.transform = 'translate('+(Math.cos(ang)*dist)+'px,'+(Math.sin(ang)*dist)+'px)';
+  });
+});
+
+// ─── CURRENCY DROPDOWN ───────────────────────────────
+function toggleDD(e){
+  e.stopPropagation();
+  document.getElementById('currDD').classList.toggle('open');
+}
+function pickCurr(e, code, flag){
+  e.stopPropagation();
+  document.getElementById('selFlag').textContent = flag;
+  document.getElementById('selCode').textContent = code;
+  document.querySelectorAll('.dd-item').forEach(function(i){ i.classList.remove('sel'); });
+  e.currentTarget.classList.add('sel');
+  document.getElementById('currDD').classList.remove('open');
+}
+document.addEventListener('click', function(){
+  document.getElementById('currDD').classList.remove('open');
+});
+
+// ─── PAYMENT SELECT ───────────────────────────────────
+function pickPay(el){
+  document.querySelectorAll('.pay-card').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+// ─── NAV ──────────────────────────────────────────────
+function setNav(el){
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  el.classList.add('active');
+}
+
+// ─── FORMAT NOMINAL ──────────────────────────────────
+function fmtNum(inp){
+  var v = inp.value.replace(/\D/g,'');
+  if(!v){ inp.value='0'; return; }
+  inp.value = parseInt(v).toLocaleString('id-ID');
+}
+</script>
+</body>
+</html>

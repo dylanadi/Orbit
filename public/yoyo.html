@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pesan untuk Bu Ires</title>
+    <style>
+        /* Mengatur tampilan dasar halaman */
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fdf5e6; /* Warna background krem lembut */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; /* Mencegah scrollbar muncul akibat bunga */
+            cursor: none; /* Menyembunyikan kursor asli agar lebah lebih terlihat */
+        }
+
+        /* Styling untuk kotak pesan di tengah */
+        .message-box {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 40px 50px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            z-index: 10; /* Memastikan pesan selalu di atas bunga */
+            border: 2px solid #ffd700;
+        }
+
+        .message-box p {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: #333;
+            margin: 0;
+        }
+
+        /* Styling untuk kursor lebah */
+        #bee {
+            position: fixed;
+            font-size: 2.5rem;
+            pointer-events: none; /* Agar klik tembus ke bawahnya */
+            z-index: 9999;
+            transform: translate(-50%, -50%);
+            transition: transform 0.1s ease-out; /* Memberikan efek gerak yang sedikit natural */
+        }
+
+        /* Styling untuk bunga yang bermunculan */
+        .flower {
+            position: absolute;
+            font-size: 2rem;
+            pointer-events: none;
+            z-index: 1;
+            animation: bloomAndFade 6s linear forwards;
+        }
+
+        /* Animasi bunga mekar, berputar, lalu menghilang */
+        @keyframes bloomAndFade {
+            0% { opacity: 0; transform: scale(0) rotate(0deg); }
+            15% { opacity: 0.8; transform: scale(1.2) rotate(45deg); }
+            80% { opacity: 0.8; transform: scale(1) rotate(180deg); }
+            100% { opacity: 0; transform: scale(0) rotate(220deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="message-box">
+        <p>Halo Bu ires, Jika bu ires ingin melihat web ini tolong whatsapp saya, karena ada component untuk webhook midtrans sedang saya ubah untuk project lain. whatsaap saya agar saya mengembalikannya lagi. terimakasih</p>
+    </div>
+
+    <div id="bee">🐝</div>
+
+    <script>
+        // --- LOGIKA UNTUK LEBAH MENGIKUTI KURSOR ---
+        const bee = document.getElementById('bee');
+        
+        document.addEventListener('mousemove', (e) => {
+            // Memperbarui posisi lebah sesuai koordinat X dan Y mouse
+            bee.style.left = e.clientX + 'px';
+            bee.style.top = e.clientY + 'px';
+        });
+
+        // --- LOGIKA UNTUK BUNGA BERMUNCULAN ---
+        const flowers = ['🌸', '🌺', '🌻', '🌼', '🌷']; // Pilihan emoji bunga
+
+        function createFlower() {
+            const flower = document.createElement('div');
+            
+            // Pilih bunga secara acak
+            const randomFlower = flowers[Math.floor(Math.random() * flowers.length)];
+            flower.innerText = randomFlower;
+            
+            flower.classList.add('flower');
+            
+            // Posisi acak di layar
+            flower.style.left = Math.random() * 100 + 'vw';
+            flower.style.top = Math.random() * 100 + 'vh';
+            
+            // Ukuran acak
+            flower.style.fontSize = (Math.random() * 2 + 1) + 'rem';
+            
+            document.body.appendChild(flower);
+
+            // Hapus elemen bunga dari HTML setelah animasinya selesai (6 detik)
+            // agar tidak membuat browser berat
+            setTimeout(() => {
+                flower.remove();
+            }, 6000);
+        }
+
+        // Memunculkan bunga baru setiap 400 milidetik
+        setInterval(createFlower, 400);
+    </script>
+
+</body>
+</html>

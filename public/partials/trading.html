@@ -1,0 +1,620 @@
+<!-- public/partials/trading.html -->
+<!-- ⚠️ PARTIAL ONLY: Tidak ada <html>, <head>, <body> -->
+
+<!-- CSS INLINE UNTUK PARTIAL -->
+<style>
+    .depth-bar-red { background: linear-gradient(to left, rgba(246, 70, 93, 0.15) 0%, transparent 100%); }
+    .depth-bar-green { background: linear-gradient(to left, rgba(14, 203, 129, 0.15) 0%, transparent 100%); }
+    input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    #tradingview_orbit { background: #181a20; }
+    
+    /* Wallet Status Badge */
+    .wallet-badge {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px; border-radius: 20px;
+        background: rgba(43, 49, 57, 0.5); border: 1px solid #2b3139;
+        font-size: 11px; font-weight: 500;
+    }
+    .wallet-badge.connected { border-color: #00d06c; background: rgba(0, 208, 108, 0.1); }
+    .wallet-badge.connected i { color: #00d06c; }
+    
+    /* Power Buying Display */
+    .power-buying {
+        background: linear-gradient(135deg, rgba(0, 208, 108, 0.1) 0%, rgba(0, 208, 108, 0.05) 100%);
+        border: 1px solid #00d06c/30; border-radius: 8px;
+        padding: 12px; margin-bottom: 16px;
+    }
+</style>
+
+<!-- TRADING GRID LAYOUT -->
+<div class="flex-1 p-4 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden h-full" id="trading-grid">
+    
+    <!-- LEFT COLUMN -->
+    <div class="lg:col-span-9 flex flex-col gap-4 overflow-hidden h-full">
+        
+        <!-- TradingView Chart Container -->
+        <div class="panel flex-1 relative w-full h-full overflow-hidden min-h-[400px]">
+            <div id="tradingview_orbit" class="h-full w-full flex items-center justify-center text-gray-500 text-sm">
+                Memuat chart...
+            </div>
+        </div>
+
+        <!-- History & Info Panel -->
+        <div class="panel shrink-0 min-h-[220px] h-[30%] flex flex-col">
+            <div class="flex gap-6 px-4 pt-3 border-b border-[#2b3139] text-sm font-medium shrink-0">
+                <button onclick="switchTab('history')" id="tab-history" class="text-white border-b-2 border-blue-500 pb-2 transition">Riwayat Blockchain</button>
+                <button onclick="switchTab('posisi')" id="tab-posisi" class="text-gray-500 hover:text-white pb-2 transition">Info Koneksi</button>
+            </div>
+
+            <!-- Tab: Riwayat Blockchain -->
+            <div id="content-history" class="overflow-y-auto flex-1">
+                <div class="px-4 py-2 border-b border-[#2b3139] bg-[#0b0e11] flex justify-between items-center">
+                    <span class="text-xs text-gray-400">Riwayat Transaksi</span>
+                    <span id="history-filter-badge" class="text-[10px] bg-[#2b3139] px-2 py-1 rounded text-white font-mono">
+                        Filter: <span class="text-[#0ecb81]">BTC/USDT</span>
+                    </span>
+                </div>
+                <table class="w-full text-xs text-left">
+                    <thead class="text-gray-500 sticky top-0 bg-[#181a20]">
+                        <tr><th class="p-3">Waktu (WIB)</th><th class="p-3">Simbol</th><th class="p-3">Arah</th><th class="p-3">Harga Eksekusi</th><th class="p-3">Kuantitas</th></tr>
+                    </thead>
+                    <tbody id="history-list" class="font-mono">
+                        <tr><td colspan="5" class="p-4 text-center text-gray-600">Hubungkan dompet untuk melihat riwayat blockchain</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Tab: Info -->
+            <div id="content-posisi" class="overflow-y-auto flex-1 hidden p-4 font-mono text-sm text-gray-400">
+                <p class="mb-2">Status Node: <span class="text-green-500">Decentralized</span></p>
+                <p class="mb-2">Contract Address: <span class="text-white" id="contract-display">Loading...</span></p>
+                <p class="mb-2">Jaringan: <span class="text-yellow-500">Ethereum Sepolia</span></p>
+                <p class="text-xs mt-4 text-gray-600">// Terminal ini membaca & menulis data langsung ke Smart Contract.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="lg:col-span-3 flex flex-col gap-4 overflow-hidden h-full">
+        
+        <!-- Orderbook -->
+        <div class="panel flex-1 flex flex-col overflow-hidden">
+            <div class="p-3 border-b border-[#2b3139] shrink-0 text-[11px] text-gray-500 uppercase flex justify-between">
+                <span>Price (USDT)</span><span>Amount (<span id="base-asset-display">BTC</span>)</span>
+            </div>
+            <div id="orderbook-asks" class="flex-1 flex flex-col-reverse overflow-hidden text-xs font-mono"></div>
+            <div class="py-2 border-y border-[#2b3139] flex justify-center gap-2 shrink-0">
+                <span id="mid-price" class="text-xl font-bold font-mono">0.00</span><span class="text-xs text-gray-500 mt-1">USDT</span>
+            </div>
+            <div id="orderbook-bids" class="flex-1 overflow-hidden text-xs font-mono"></div>
+        </div>
+
+        <!-- POWER BUYING / CASH BALANCE (NEW) -->
+        <div class="power-buying">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs text-gray-400">💰 Power Buying (Saldo Bersih)</span>
+                <i class="bi bi-info-circle text-gray-500 text-xs cursor-help" title="Saldo IDR yang bisa digunakan untuk membeli aset crypto"></i>
+            </div>
+            <div id="power-buying-value" class="text-xl font-bold text-white">Rp 0</div>
+            <div class="text-[10px] text-gray-500 mt-1">Termasuk deposit Midtrans, belum termasuk aset crypto</div>
+        </div>
+
+        <!-- Execution Panel -->
+        <div class="panel shrink-0 p-4">
+            <div class="flex justify-between items-center mb-4">
+                <span class="text-sm text-gray-400">Pair: <span id="current-symbol-display" class="text-white font-bold">BTC/USDT</span></span>
+                <span class="text-xs font-bold bg-[#2b3139] px-2 py-1 rounded text-white">ON-CHAIN MARKET</span>
+            </div>
+            <div class="space-y-3 mb-4">
+                <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between">
+                    <span class="text-xs text-gray-500 mt-1">Price</span>
+                    <input type="text" value="Market" disabled class="bg-transparent text-right text-sm font-mono text-white w-1/2">
+                </div>
+                <div class="bg-[#0b0e11] border border-[#2b3139] rounded px-3 py-2 flex justify-between">
+                    <span class="text-xs text-gray-500 mt-1">Amount</span>
+                    <input type="number" id="order-amount" value="0.1" step="0.01" class="bg-transparent text-right text-sm font-mono text-white focus:outline-none w-1/2">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="executeOrder('SELL')" class="bg-[#f6465d] hover:bg-[#ff5a71] text-white font-bold py-3 rounded transition-all active:scale-95">SELL</button>
+                <button onclick="executeOrder('BUY')" class="bg-[#0ecb81] hover:bg-[#14d98d] text-white font-bold py-3 rounded transition-all active:scale-95">BUY</button>
+            </div>
+            <p id="buy-error" class="text-[10px] text-red-500 mt-2 hidden"></p>
+        </div>
+    </div>
+</div>
+
+<!-- TRADING LOGIC SCRIPT -->
+<script id="trading-script">
+// ==========================================
+// KONFIGURASI & STATE
+// ==========================================
+const CONTRACT_ADDRESS = "0xfFE1F8afC7E780d37F4C3dF7B67cDd5DB66af160";
+const ABI = [
+    "function getBalance(address _user) public view returns (uint256)",
+    "function getTrades(address _user) public view returns (tuple(string symbol, string side, uint256 price, uint256 qty, uint256 timestamp)[])",
+    "function buyAsset(string _symbol, uint256 _price, uint256 _qty) public",
+    "function sellAsset(string _symbol, uint256 _price, uint256 _qty) public"
+];
+
+// ✅ VALID SYMBOLS WHITELIST (mencegah invalid injection)
+const VALID_SYMBOLS = [
+    'BTC', 'ETH', 'BNB', 'SOL', 'XRP', 'DOGE', 'ADA', 'AVAX', 
+    'LINK', 'MATIC', 'DOT', 'LTC', 'TRX', 'ATOM', 'XMR', 'UNI',
+    'AAVE', 'SUSHI', 'CRV', 'COMP', 'MKR', 'SNX', 'YFI', '1INCH'
+];
+
+let livePrice = 0;
+let binanceWS = null;
+let tradingViewWidget = null;
+let currentSymbol = { raw: 'BTC', binance: 'btcusdt', contract: 'BTC/USDT', baseAsset: 'BTC' };
+const TRADING_IDR_RATE = 15000;
+
+// ==========================================
+// WALLET SYNC
+// ==========================================
+function getWalletStatus() {
+    return {
+        connected: window.userAddress ? true : false,
+        address: window.userAddress || localStorage.getItem('orbit_wallet_address'),
+        provider: window.provider,
+        signer: window.signer
+    };
+}
+
+function setWalletStatus(connected, address = null) {
+    if (connected && address) {
+        window.userAddress = address;
+        localStorage.setItem('orbit_wallet_address', address);
+    } else {
+        window.userAddress = null;
+        localStorage.removeItem('orbit_wallet_address');
+    }
+    window.dispatchEvent(new CustomEvent('wallet:statusChanged', {
+        detail: { connected, address }
+    }));
+}
+
+function syncWalletUI() {
+    const status = getWalletStatus();
+    updateWalletBadge(status.connected, status.address);
+    updatePowerBuying(status.connected, status.address);
+    if (status.connected) {
+        loadBlockchainHistory();
+        fetchCashBalance();
+    } else {
+        clearTradingUI();
+    }
+}
+
+function updateWalletBadge(connected, address) {
+    const walletStatus = document.getElementById('wallet-status');
+    if (walletStatus) {
+        if (connected && address) {
+            const short = `${address.slice(0, 6)}...${address.slice(-4)}`;
+            walletStatus.innerHTML = `<i class="bi bi-patch-check-fill text-[#00d06c]"></i> ${short}`;
+            walletStatus.className = 'text-[10px] text-[#00d06c] flex items-center justify-end gap-1 mt-0.5 font-medium';
+        } else {
+            walletStatus.innerHTML = '<i class="bi bi-wallet"></i> Not Connected';
+            walletStatus.className = 'text-[10px] text-gray-500 flex items-center justify-end gap-1 mt-0.5';
+        }
+    }
+}
+
+async function fetchCashBalance() {
+    const { connected, address } = getWalletStatus();
+    if (!connected || !address) return;
+    
+    try {
+        const res = await fetch(`/api/wallet/balance/${address}`);
+        const data = await res.json();
+        if (data.success) {
+            const balanceIDR = parseFloat(data.balanceIDR);
+            document.getElementById('power-buying-value').textContent = formatIDR(balanceIDR);
+        }
+    } catch (err) {
+        console.error('❌ Fetch balance error:', err);
+        document.getElementById('power-buying-value').textContent = 'Rp 0';
+    }
+}
+
+function updatePowerBuying(connected, address) {
+    const el = document.getElementById('power-buying-value');
+    if (!el) return;
+    if (connected && address) {
+        el.textContent = 'Memuat...';
+        fetchCashBalance();
+    } else {
+        el.textContent = 'Rp 0';
+    }
+}
+
+function clearTradingUI() {
+    const historyEl = document.getElementById('history-list');
+    if (historyEl) historyEl.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-600">Hubungkan dompet untuk melihat riwayat blockchain</td></tr>';
+    const balanceEl = document.getElementById('power-buying-value');
+    if (balanceEl) balanceEl.textContent = 'Rp 0';
+}
+
+// ==========================================
+// ✅ ROBUST SYMBOL PARSER (ChatGPT-style fix)
+// ==========================================
+function parseSymbolFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    let sym = params.get('symbol') || 'BTC';
+
+    // ✅ Bersihkan symbol: uppercase, trim, hapus spasi & slash
+    sym = sym
+        .toUpperCase()
+        .trim()
+        .replace(/\s+/g, '')
+        .replace('/', '');
+
+    // ✅ Hapus suffix market umum (pakai $ untuk end-of-string)
+    sym = sym
+        .replace(/USDT$/i, '')
+        .replace(/USD$/i, '')
+        .replace(/BUSD$/i, '')
+        .replace(/PERP$/i, '');
+
+    // ✅ Ambil hanya huruf & angka (sanitize injection)
+    sym = sym.replace(/[^A-Z0-9]/g, '');
+
+    // ✅ Whitelist validation (mencegah symbol invalid)
+    if (!VALID_SYMBOLS.includes(sym)) {
+        console.warn(`❌ Invalid symbol "${sym}", fallback to BTC`);
+        sym = 'BTC';
+    }
+
+    // ✅ Fallback keamanan
+    if (!sym || sym.length < 2) {
+        sym = 'BTC';
+    }
+
+    // ✅ Build currentSymbol object
+    currentSymbol = {
+        raw: sym,
+        binance: `${sym.toLowerCase()}usdt`,    // Untuk Binance WS: ethusdt
+        contract: `${sym}/USDT`,                 // Untuk UI: ETH/USDT
+        baseAsset: sym                           // Untuk contract: ETH
+    };
+
+    console.log('✅ Parsed Symbol:', currentSymbol);
+}
+
+// ==========================================
+// INIT UTAMA
+// ==========================================
+function initTrading() {
+    console.log('🔧 initTrading() called');
+    syncWalletUI();
+    parseSymbolFromURL();
+    updateSymbolUI();
+    setupWalletListeners();
+    setTimeout(() => {
+        ensureTradingViewReady();
+        initBinanceWS();
+    }, 150);
+    console.log('✅ Trading initialized');
+}
+
+function setupWalletListeners() {
+    window.addEventListener('wallet:statusChanged', (e) => {
+        console.log('📡 Trading: wallet status changed', e.detail);
+        syncWalletUI();
+    });
+    if (window.ethereum) {
+        window.ethereum.on('accountsChanged', (accounts) => {
+            if (accounts.length === 0) {
+                setWalletStatus(false);
+            } else {
+                setWalletStatus(true, accounts[0]);
+                initWeb3Provider();
+            }
+        });
+        window.ethereum.on('chainChanged', () => {
+            location.reload();
+        });
+    }
+}
+
+// ==========================================
+// ✅ TRADINGVIEW - FIXED SYMBOL LOGIC
+// ==========================================
+function ensureTradingViewReady() {
+    const container = document.getElementById('tradingview_orbit');
+    if (!container) return setTimeout(ensureTradingViewReady, 100);
+    if (typeof window.TradingView === 'undefined') {
+        container.innerHTML = '<div class="text-yellow-500 p-4">⏳ Menunggu library TradingView... (pastikan tv.js dimuat di index.html)</div>';
+        return setTimeout(ensureTradingViewReady, 500);
+    }
+    initTradingView();
+}
+
+function initTradingView() {
+    const container = document.getElementById('tradingview_orbit');
+    if (!container) return;
+
+    // Destroy widget lama
+    if (tradingViewWidget && typeof tradingViewWidget.remove === 'function') {
+        try { tradingViewWidget.remove(); } catch(e) {}
+    }
+    container.innerHTML = '';
+    tradingViewWidget = null;
+
+    // ✅ PAKAI currentSymbol.binance.toUpperCase() → ETHUSDT (bukan ETHUSDUSDT!)
+    const tvSymbol = `BINANCE:${currentSymbol.binance.toUpperCase()}`;
+    console.log(`📈 Creating TradingView: ${tvSymbol}`);
+
+    try {
+        tradingViewWidget = new window.TradingView.widget({
+            container_id: 'tradingview_orbit',
+            symbol: tvSymbol,  // ✅ JANGAN + 'USD' LAGI!
+            interval: '15',
+            timezone: 'Asia/Jakarta',
+            theme: 'dark',
+            style: '1',
+            locale: 'id',
+            backgroundColor: '#181a20',
+            gridColor: '#2b3139',
+            hide_top_toolbar: false,
+            hide_legend: false,
+            save_image: false,
+            autosize: true,
+            disable_cache: true,
+            loading_screen: { backgroundColor: '#181a20', foregroundColor: '#0ecb81' },
+            overrides: {
+                'paneProperties.background': '#181a20',
+                'paneProperties.vertGridProperties.color': '#2b3139',
+                'paneProperties.horzGridProperties.color': '#2b3139',
+                'scalesProperties.textColor': '#9ca3af'
+            }
+        });
+        console.log('✅ TradingView widget created');
+    } catch (err) {
+        console.error('❌ TradingView init failed:', err);
+        container.innerHTML = `<div class="text-red-500 p-4 text-sm">⚠️ Gagal memuat chart: ${err.message}. <br><button onclick="initTradingView()" class="mt-2 px-3 py-1 bg-[#2b3139] rounded text-white hover:bg-[#3b4149]">Coba Lagi</button></div>`;
+    }
+}
+
+// ==========================================
+// BINANCE WEBSOCKET
+// ==========================================
+function initBinanceWS() {
+    if (binanceWS) {
+        binanceWS.onmessage = null;
+        binanceWS.onerror = null;
+        binanceWS.onclose = null;
+        binanceWS.close();
+        binanceWS = null;
+    }
+    
+    // ✅ currentSymbol.binance sudah normalized: ethusdt
+    const stream = `${currentSymbol.binance}@depth10@100ms/${currentSymbol.binance}@trade`;
+    console.log(`🔌 Binance WS: ${stream}`);
+    
+    binanceWS = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`);
+    
+    binanceWS.onmessage = (e) => {
+        try {
+            const data = JSON.parse(e.data);
+            if (data.e === 'trade') {
+                livePrice = parseFloat(data.p);
+                const mid = document.getElementById('mid-price');
+                if (mid) {
+                    mid.innerText = livePrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    mid.className = data.m ? 'text-xl font-bold text-red-500 font-mono' : 'text-xl font-bold text-green-500 font-mono';
+                }
+            }
+            if (data.bids && data.asks) {
+                renderOB('orderbook-asks', data.asks.reverse(), 'text-[#f6465d]', 'depth-bar-red');
+                renderOB('orderbook-bids', data.bids, 'text-[#0ecb81]', 'depth-bar-green');
+            }
+        } catch (err) { console.error('WS parse error:', err); }
+    };
+    binanceWS.onerror = (err) => console.error('WS error:', err);
+}
+
+function renderOB(id, data, tColor, bColor) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let html = '';
+    const valid = data.filter(i => i && i[1]);
+    if (!valid.length) {
+        el.innerHTML = '<div class="text-center text-gray-500 py-4 text-xs">No orders</div>';
+        return;
+    }
+    const max = Math.max(...valid.map(i => parseFloat(i[1]) || 0));
+    valid.forEach(i => {
+        const price = parseFloat(i[0]).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 6});
+        const amount = parseFloat(i[1]).toFixed(4);
+        const width = max > 0 ? (parseFloat(i[1]) / max) * 100 : 0;
+        html += `<div class="relative flex justify-between px-3 py-0.5"><div class="absolute right-0 top-0 bottom-0 ${bColor} opacity-40" style="width: ${width}%"></div><span class="${tColor} z-10 font-mono">${price}</span><span class="text-white z-10 font-mono">${amount}</span></div>`;
+    });
+    el.innerHTML = html;
+}
+
+// ==========================================
+// WEB3 & TRANSAKSI
+// ==========================================
+function initWeb3Provider() {
+    if (!window.ethereum || !window.userAddress) return;
+    window.provider = new ethers.providers.Web3Provider(window.ethereum);
+    window.signer = window.provider.getSigner();
+    console.log('✅ Web3 provider & signer initialized');
+}
+
+async function connectWallet() {
+    if (!window.ethereum) return alert('🦊 Install MetaMask dulu!');
+    try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const address = accounts[0];
+        setWalletStatus(true, address);
+        initWeb3Provider();
+        syncWalletUI();
+        checkNetwork();
+        console.log('✅ Wallet connected');
+    } catch (err) {
+        console.error('❌ Connect error:', err);
+        if (err.code === 4001) {
+            alert('❌ Koneksi dibatalkan di MetaMask');
+        } else {
+            alert('Gagal connect: ' + err.message);
+        }
+    }
+}
+
+async function executeOrder(side) {
+    const { connected, address, signer } = getWalletStatus();
+    if (!connected || !address) return alert('⚠️ Connect wallet dulu!');
+    if (!signer) return alert('⚠️ Signer belum siap. Klik "Connect Wallet" ulang.');
+    if (livePrice === 0) return alert('⏳ Tunggu harga live dari market...');
+    
+    const qty = parseFloat(document.getElementById('order-amount')?.value || 0);
+    if (!qty || qty <= 0) return alert('❌ Kuantitas tidak valid');
+
+    const safePrice = Math.floor(livePrice * 10000);
+    const safeQty = Math.floor(qty * 10000);
+
+    try {
+        console.log(`🚀 Sending tx: ${side} ${currentSymbol.contract} @ ${livePrice}`);
+        const writeContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+        const methodName = side === 'BUY' ? 'buyAsset' : 'sellAsset';
+        const tx = await writeContract[methodName](currentSymbol.raw, safePrice, safeQty);
+        showToast(`🚀 Transaksi ${side} dikirim! Hash: ${tx.hash.substring(0, 20)}...`, 'pending');
+        const receipt = await tx.wait();
+        showToast(`✅ Transaksi Sukses! Block #${receipt.blockNumber}`, 'success');
+        fetchCashBalance();
+        loadBlockchainHistory();
+    } catch (err) {
+        console.error('❌ Transaction failed:', err);
+        if (err.code === 4001) {
+            showToast('❌ Transaksi dibatalkan', 'error');
+        } else if (err.message?.includes('insufficient funds')) {
+            showToast('💸 Saldo ETH tidak cukup untuk gas', 'error');
+        } else if (err.message?.includes('Insufficient balance')) {
+            showToast('💸 Saldo IDR tidak cukup', 'error');
+        } else {
+            showToast(`❌ Gagal: ${err.message}`, 'error');
+        }
+    }
+}
+
+// ==========================================
+// RIWAYAT BLOCKCHAIN
+// ==========================================
+async function loadBlockchainHistory() {
+    const { connected, address, provider } = getWalletStatus();
+    if (!connected || !address || !provider) return;
+    const tbody = document.getElementById('history-list');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-500">Memuat riwayat...</td></tr>`;
+    
+    try {
+        const readContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        const raw = await readContract.getTrades(address);
+        const all = [...raw].reverse();
+        const target = currentSymbol.raw.toUpperCase();
+        const filtered = all.filter(t => {
+            const sym = (t.symbol || '').toUpperCase().replace(/\/?USDT$/i, '').replace(/USD$/i, '');
+            return sym === target;
+        });
+        
+        if (!filtered.length) {
+            tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-600">Belum ada transaksi untuk ${currentSymbol.contract}</td></tr>`;
+            return;
+        }
+        
+        let html = '';
+        filtered.forEach(t => {
+            const priceUSD = ((t.price?.toNumber?.() || 0) / 10000) / TRADING_IDR_RATE;
+            const qty = (t.qty?.toNumber?.() || 0) / 10000;
+            const time = new Date((t.timestamp?.toNumber?.() || 0) * 1000).toLocaleTimeString('id-ID');
+            const isBuy = t.side === 'BUY';
+            html += `<tr class="border-b border-[#2b3139] hover:bg-[#2b3139]/30 transition">
+                <td class="p-3 text-gray-500 font-mono">${time}</td>
+                <td class="p-3 text-white font-bold">${t.symbol}</td>
+                <td class="p-3 ${isBuy ? 'text-[#0ecb81]' : 'text-[#f6465d]'}">${t.side}</td>
+                <td class="p-3 text-white font-mono">$${priceUSD.toFixed(2)}</td>
+                <td class="p-3 text-white font-mono">${qty.toFixed(4)}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    } catch (err) {
+        console.error('History error:', err);
+        const tbody = document.getElementById('history-list');
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Gagal memuat riwayat</td></tr>`;
+    }
+}
+
+// ==========================================
+// UTILS
+// ==========================================
+function formatIDR(amount) {
+    const num = parseFloat(amount);
+    if (isNaN(num) || num === null || num === undefined) return 'Rp 0';
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
+}
+
+function showToast(message, type = 'success') {
+    document.querySelectorAll('.wallet-toast').forEach(t => t.remove());
+    const toast = document.createElement('div');
+    toast.className = `wallet-toast fixed top-5 right-5 px-4 py-3 rounded-lg shadow-lg z-50 text-sm font-medium ${type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-yellow-600'} text-white`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4000);
+}
+
+function updateSymbolUI() {
+    document.getElementById('current-symbol-display').innerText = currentSymbol.contract;
+    document.getElementById('base-asset-display').innerText = currentSymbol.baseAsset;
+    document.getElementById('history-filter-badge').innerHTML = `Filter: <span class="text-[#0ecb81]">${currentSymbol.contract}</span>`;
+    document.getElementById('contract-display').innerText = `${CONTRACT_ADDRESS.slice(0, 10)}...${CONTRACT_ADDRESS.slice(-8)}`;
+}
+
+function switchTab(tab) {
+    document.getElementById('content-history').classList.toggle('hidden', tab !== 'history');
+    document.getElementById('content-posisi').classList.toggle('hidden', tab !== 'posisi');
+    const hTab = document.getElementById('tab-history');
+    const pTab = document.getElementById('tab-posisi');
+    if (hTab) hTab.className = `pb-2 transition ${tab==='history'?'text-white border-b-2 border-blue-500':'text-gray-500 hover:text-white'}`;
+    if (pTab) pTab.className = `pb-2 transition ${tab==='posisi'?'text-white border-b-2 border-blue-500':'text-gray-500 hover:text-white'}`;
+}
+
+async function checkNetwork() {
+    const { provider } = getWalletStatus();
+    if (!provider) return;
+    try {
+        const net = await provider.getNetwork();
+        if (net.chainId !== 11155111) {
+            showToast('⚠️ Ganti network MetaMask ke Sepolia Testnet', 'error');
+        }
+    } catch (err) { console.error('Network check error:', err); }
+}
+
+function cleanupTrading() {
+    if (binanceWS) { binanceWS.onmessage = null; binanceWS.onerror = null; binanceWS.onclose = null; binanceWS.close(); binanceWS = null; }
+    if (tradingViewWidget && typeof tradingViewWidget.remove === 'function') { try { tradingViewWidget.remove(); } catch(e) {} }
+    tradingViewWidget = null;
+    console.log('🧹 Trading partial cleaned up');
+}
+
+// ==========================================
+// EXPOSE & INIT
+// ==========================================
+window.connectWallet = connectWallet;
+window.executeOrder = executeOrder;
+window.switchTab = switchTab;
+window.initTrading = initTrading;
+window.cleanupTrading = cleanupTrading;
+window.syncWalletUI = syncWalletUI;
+window.parseSymbolFromURL = parseSymbolFromURL;
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initTrading);
+} else {
+    initTrading();
+}
+
+window.addEventListener('beforeunload', cleanupTrading);
+</script>
